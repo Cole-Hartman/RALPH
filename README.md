@@ -18,6 +18,33 @@ My take on [Ralph](https://www.aihero.dev/getting-started-with-ralph)
 Optional: Before merging, remove Ralph run files if you do not want them in the final PR diff:
 - `git rm -r .ralph`
 
+## Ralph HITL (Human-In-The-Loop)
+
+Same as Ralph, but you run one task at a time and stay in control:
+
+```bash
+mkdir -p .ralph && cp ~/RALPH/ralph-hitl/hitl.sh .ralph/
+```
+
+Then:
+```bash
+./.ralph/hitl.sh        # Run one task
+./.ralph/hitl.sh        # Run the next task
+# ... repeat as needed
+```
+
+**Use HITL when:**
+- Testing a new feature track for the first time
+- Debugging mid-feature or catching failures early
+- You want to stay engaged and build intuition
+
+**Use Ralph when:**
+- You have a stable, well-tested track
+- You're confident in the breakdown
+- You're comfortable going AFK
+
+See [ralph-hitl/README.md](ralph-hitl/README.md) for details.
+
 ## File Structure
 
 ```
