@@ -1,5 +1,3 @@
-# RALPH
-
 My take on [Ralph](https://www.aihero.dev/getting-started-with-ralph)
 
 [Flow](https://excalidraw.com/#json=M7mMeOWvmog-VqUt_-YIt,5qFVkyRu03Gsfszi3NhsPw)
