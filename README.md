@@ -34,8 +34,6 @@ my-project/
   ├── src/
   │   └── ... (main codebase)
   │
-  ├── ralph.sh                         # local template copied into worktrees
-  │
   ├── .worktrees/
   │   ├── feature-auth-feature/        # isolated workspace + branch
   │   │   ├── src/
