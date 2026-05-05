@@ -1,4 +1,17 @@
 #!/bin/bash
+################################################################################
+# RALPH - Autonomous AI Loop Orchestrator
+#
+# This script orchestrates an autonomous AI development loop that:
+# - Creates isolated git worktrees and branches for each feature
+# - Iteratively invokes Claude to implement one task per iteration
+# - Tracks progress via TRACK.md (tasks) and progress.txt (learnings)
+# - Automatically detects completion when all tasks are marked [x]
+# - Manages GitHub PR creation and updates
+#
+# Usage: ./ralph.sh [max_iterations] [sleep_seconds]
+# Example: ./ralph.sh 10 2
+################################################################################
 set -e
 
 MAX=${1:-10}
@@ -15,19 +28,30 @@ echo "Feature: $FEATURE_NAME"
 echo "Branch: $FEATURE_BRANCH"
 echo ""
 
+# Determine if this is the first worker by checking if branch exists in git (source of truth)
+IS_FIRST=0
+if ! git rev-parse --verify "$FEATURE_BRANCH" >/dev/null 2>&1; then
+    IS_FIRST=1
+    echo "First worker detected (branch doesn't exist yet)"
+else
+    echo "Continuation worker detected (branch already exists)"
+fi
+
+echo ""
+
 # Create worktree for this feature/track
-IS_NEW_BRANCH=false
 if [ ! -d "$WORKTREE_PATH" ]; then
     echo "Creating dedicated worktree with branch: $FEATURE_BRANCH"
     mkdir -p .worktrees
-    # Check if branch already exists
-    if git rev-parse --verify "$FEATURE_BRANCH" >/dev/null 2>&1; then
+    # Check if branch already exists (git is source of truth)
+    if [ $IS_FIRST -eq 0 ]; then
+        # Branch exists, add worktree from existing branch
         git worktree add "$WORKTREE_PATH" "$FEATURE_BRANCH"
         echo "Worktree created from existing branch: $FEATURE_BRANCH"
     else
+        # First worker: create new branch
         git worktree add -b "$FEATURE_BRANCH" "$WORKTREE_PATH" "$MAIN_BRANCH"
         echo "Worktree created with new branch: $FEATURE_BRANCH"
-        IS_NEW_BRANCH=true
     fi
 else
     echo "Using existing worktree: $WORKTREE_PATH"
@@ -38,7 +62,7 @@ echo ""
 # Change to worktree for all work
 cd "$WORKTREE_PATH"
 
-# Check if PR already exists
+# Check if PR already exists (will check again before creating)
 PR_URL=""
 if command -v gh &> /dev/null; then
     PR_URL=$(gh pr list --head "$FEATURE_BRANCH" --json url -q '.[0].url' 2>/dev/null || echo "")
@@ -58,9 +82,8 @@ for ((i=1; i<=$MAX; i++)); do
     echo "╚════════════════════════════════════════════════════════════╝"
     echo ""
 
-    IS_FIRST=$((i == 1))
-
     # Build prompt dynamically to handle PR instructions
+    # Note: IS_FIRST is determined at startup based on git branch existence
     if [ $IS_FIRST -eq 1 ]; then
         if [ -z "$PR_URL" ]; then
             PR_SECTION="## FIRST WORKER: Create PR + Implement Task
@@ -81,6 +104,20 @@ Your commits will automatically update this PR."
         PR_SECTION="## CONTINUATION WORKER: Implement Task (PR already created)
 
 Previous worker created the PR. Your commits automatically update it."
+    fi
+
+    # Extract last failure/blocker if this isn't the first iteration
+    FAILURE_CONTEXT=""
+    if [ $IS_FIRST -eq 0 ] && [ -f "progress.txt" ]; then
+        # Get the last iteration entry (most recent failure)
+        LAST_ENTRY=$(tac progress.txt | sed -n '/^## Iteration/,/^---$/p' | tac | head -20)
+        if [[ "$LAST_ENTRY" == *"FAILED"* ]] || [[ "$LAST_ENTRY" == *"failed"* ]] || [[ "$LAST_ENTRY" == *"Error"* ]]; then
+            FAILURE_CONTEXT="
+
+⚠️  PREVIOUS ITERATION FAILED - Read this carefully:
+
+$LAST_ENTRY"
+        fi
     fi
 
     # Create temp file to capture output while streaming to terminal
@@ -148,9 +185,7 @@ If you discover a reusable pattern that future work should know about:
 
 ## End Condition
 
-After completing your task, check TRACK.md:
-- If ALL tasks are [x], output exactly: <promise>COMPLETE</promise>
-- If tasks remain [ ], just end your response (next iteration will continue)")
+Just end your response when done. The system will check if all tasks are [x] and continue or complete.$FAILURE_CONTEXT")
 
     # Display the result with section header
     echo ""
@@ -159,7 +194,10 @@ After completing your task, check TRACK.md:
     echo "─── End Output ────────────────────────────────────────────────"
     echo ""
 
-    if [[ "$result" == *"<promise>COMPLETE</promise>"* ]]; then
+    # Check if all tasks are complete by counting incomplete markers in TRACK.md
+    INCOMPLETE_COUNT=$(grep -c "^- \[ \]" TRACK.md 2>/dev/null || echo "1")
+
+    if [ "$INCOMPLETE_COUNT" -eq 0 ]; then
         cd ../..
 
         # Check for PR after completion
@@ -195,7 +233,23 @@ After completing your task, check TRACK.md:
         exit 0
     fi
 
-    echo "[$(date '+%H:%M:%S')] Iteration $i complete. Waiting ${SLEEP}s before next iteration..."
+    # Safety check: if first worker and no PR exists after iteration, create it
+    # (handles case where agent didn't create PR or concurrent workers)
+    if [ $IS_FIRST -eq 1 ] && [ -z "$PR_URL" ]; then
+        # Check again if PR exists (another worker might have created it)
+        LATEST_PR=$(gh pr list --head "$FEATURE_BRANCH" --json url -q '.[0].url' 2>/dev/null || echo "")
+        if [ -z "$LATEST_PR" ] && git log --oneline | head -1 >/dev/null 2>&1; then
+            # Branch has commits but no PR exists, create it
+            echo "[$(date '+%H:%M:%S')] Creating PR (first worker, agent didn't create one)..."
+            gh pr create -B "$MAIN_BRANCH" -H "$FEATURE_BRANCH" --title "WIP: $FEATURE_NAME" --body "Track: $FEATURE_NAME. See PRD.md and TRACK.md for details." 2>/dev/null
+            PR_URL=$(gh pr list --head "$FEATURE_BRANCH" --json url -q '.[0].url' 2>/dev/null || echo "")
+            if [ -n "$PR_URL" ]; then
+                echo "✓ PR created: $PR_URL"
+            fi
+        fi
+    fi
+
+    echo "[$(date '+%H:%M:%S')] Iteration $i complete. Remaining tasks: $INCOMPLETE_COUNT. Waiting ${SLEEP}s before next iteration..."
     sleep $SLEEP
 done
 
@@ -207,10 +261,13 @@ if command -v gh &> /dev/null; then
     FINAL_PR=$(gh pr list --head "$FEATURE_BRANCH" --json url -q '.[0].url' 2>/dev/null || echo "")
 fi
 
+# Count remaining incomplete tasks
+REMAINING_INCOMPLETE=$(grep -c "^- \[ \]" "$WORKTREE_PATH/TRACK.md" 2>/dev/null || echo "?")
+
 echo ""
 echo "╔════════════════════════════════════════════════════════════╗"
 echo "║  Max iterations ($MAX) reached"
-echo "║  Some tasks may remain incomplete"
+echo "║  Remaining incomplete tasks: $REMAINING_INCOMPLETE"
 echo "╚════════════════════════════════════════════════════════════╝"
 echo ""
 echo "Work in Progress:"

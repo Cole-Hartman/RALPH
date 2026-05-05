@@ -3,6 +3,20 @@ name: prd
 description: "Generate a Product Requirements Document (PRD.md) and Task Track (TRACK.md) for a new feature. Use when planning a feature, starting a new project, or when asked to create a PRD. Triggers on: create a prd, write prd for, plan this feature, requirements for, spec out."
 ---
 
+################################################################################
+# PRD & Track Generator Skill
+#
+# This skill generates structured Product Requirements Documents and Task Tracks
+# optimized for autonomous AI implementation via the Ralph loop.
+#
+# Creates three files:
+# - PRD.md: Strategic overview (goals, scope, technical considerations)
+# - TRACK.md: Implementation roadmap (tasks organized by phase with acceptance criteria)
+# - progress.txt: Shared state log (patterns, learnings, blockers)
+#
+# Key principle: Every task must be completable in one AI iteration (~10 min, one context window)
+################################################################################
+
 # PRD & Track Generator
 
 Create detailed Product Requirements Documents and implementation tracks that are clear, actionable, and suitable for autonomous AI implementation via the Ralph loop.
