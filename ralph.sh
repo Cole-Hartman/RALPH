@@ -46,7 +46,15 @@ fi
 # Extract feature/track name from TRACK.md or use default
 FEATURE_NAME=$(grep -m1 "^# " TRACK.md 2>/dev/null | sed 's/^# //' || echo "feature")
 # Sanitize for git branch name: lowercase, replace spaces/special chars with hyphens, remove invalid chars
-FEATURE_BRANCH="feature/$(echo "$FEATURE_NAME" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g' | sed 's/-\+/-/g' | sed 's/^-//;s/-$//')"
+SANITIZED=$(echo "$FEATURE_NAME" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g')
+# Collapse multiple consecutive hyphens into one
+while [[ "$SANITIZED" == *"--"* ]]; do
+    SANITIZED="${SANITIZED//--/-}"
+done
+# Remove leading/trailing hyphens
+SANITIZED="${SANITIZED#-}"
+SANITIZED="${SANITIZED%-}"
+FEATURE_BRANCH="feature/$SANITIZED"
 WORKTREE_PATH="$PROJECT_ROOT/.worktrees/$FEATURE_BRANCH"
 MAIN_BRANCH=$(git rev-parse --abbrev-ref HEAD)
 
@@ -167,13 +175,13 @@ Worktree: $WORKTREE_PATH
 Branch: $FEATURE_BRANCH
 All work is isolated. Commits go to this branch only.
 
-$PR_SECTION"
+$PR_SECTION
 
 ## Steps
 
 1. Read PRD.md for the feature overview
 2. Read TRACK.md for the implementation roadmap
-3. Find the first task that is NOT complete (marked [ ]).
+3. Find the first task that is NOT complete (marked \\[ \\]).
 4. Read progress.txt - check the Learnings section first for patterns from previous iterations.
 5. Implement that ONE task only.
 6. Run tests/typecheck to verify it works.
@@ -181,7 +189,7 @@ $PR_SECTION"
 ## Critical: Only Complete If Tests Pass
 
 - If tests PASS:
-  - Update TRACK.md to mark the task complete (change [ ] to [x])
+  - Update TRACK.md to mark the task complete (change \\[ \\] to \\[x\\])
   - Commit your changes with message: feat: [task description]
   - Append what worked to progress.txt
 
@@ -194,7 +202,7 @@ $PR_SECTION"
 
 Append to progress.txt using this format:
 
-## Iteration [N] - [Task Name]
+## Iteration \\[N\\] - \\[Task Name\\]
 - What was implemented
 - Files changed
 - Learnings for future iterations:
@@ -212,7 +220,7 @@ If you discover a reusable pattern that future work should know about:
 
 ## End Condition
 
-Just end your response when done. The system will check if all tasks are [x] and continue or complete.$FAILURE_CONTEXT")
+Just end your response when done. The system will check if all tasks are \\[x\\] and continue or complete.$FAILURE_CONTEXT")
 
     # Display the result with section header
     echo ""
