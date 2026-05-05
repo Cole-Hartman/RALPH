@@ -7,10 +7,14 @@ My take on [Ralph](https://www.aihero.dev/getting-started-with-ralph)
 
 ## To Use
 1. Ensure you're on a feature branch.
-2. Set up Ralph state files in your branch:
+2. Copy the Ralph runner into your branch:
+    ```bash
+    mkdir -p .ralph && cp ~/RALPH/ralph.sh .ralph/
+    ```
+3. Set up Ralph state files:
     - Run the `/prd` skill to generate `.ralph/PRD.md`, `.ralph/TRACK.md`, `.ralph/progress.txt`, and `.ralph/prompt.md`
     - Or copy them manually into `.ralph/`
-3. Run `./.ralph/ralph.sh`
+4. Run `./.ralph/ralph.sh`
 
 Optional: Before merging, remove Ralph run files if you do not want them in the final PR diff:
 - `git rm -r .ralph`
