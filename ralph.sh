@@ -1,9 +1,6 @@
 #!/bin/bash
 ################################################################################
-# RALPH - Inside-Worktree Autonomous AI Loop Runner
-#
-# Run this from an already-created feature worktree. Ralph does not create,
-# switch, or remove worktrees. The current checkout is the agent's world.
+# RALPH - Autonomous AI Loop Runner
 #
 # Expected state files:
 #   .ralph/prompt.md
