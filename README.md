@@ -1,6 +1,6 @@
-My take on [Ralph](https://excalidraw.com/#json=82mlJ_il7lpeY4YwrS9EU,-AKcGcG30b0dhgmQa5tZIA)
+My take on [Ralph](https://www.aihero.dev/getting-started-with-ralph)
 
-## [How It Works](https://excalidraw.com/#json=uAOLfwHkgc3OpG_ODOJe3,aCVSy0iwvnp81eU9KYP0mg)
+## [How It Works](https://excalidraw.com/#json=82mlJ_il7lpeY4YwrS9EU,-AKcGcG30b0dhgmQa5tZIA)
 
 <img width="7096" height="3090" alt="image" src="https://github.com/user-attachments/assets/daf19d43-8ff4-41c2-85b3-313359f05249" />
 
