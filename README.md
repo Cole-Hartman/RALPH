@@ -1,6 +1,6 @@
 My take on [Ralph](https://www.aihero.dev/getting-started-with-ralph)
 
-[Flow](https://excalidraw.com/#json=M7mMeOWvmog-VqUt_-YIt,5qFVkyRu03Gsfszi3NhsPw)
+[Flow](https://excalidraw.com/#json=uAOLfwHkgc3OpG_ODOJe3,aCVSy0iwvnp81eU9KYP0mg)
 
-<img width="6942" height="3219" alt="image" src="https://github.com/user-attachments/assets/f6850af9-4b41-437a-a454-874ac86221c3" />
+<img width="10000" alt="image" src="https://github.com/user-attachments/assets/bc4f3f8a-ecbc-4b66-82f0-df5f77643bbf" />
 
