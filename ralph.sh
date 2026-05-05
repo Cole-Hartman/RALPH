@@ -45,7 +45,8 @@ fi
 
 # Extract feature/track name from TRACK.md or use default
 FEATURE_NAME=$(grep -m1 "^# " TRACK.md 2>/dev/null | sed 's/^# //' || echo "feature")
-FEATURE_BRANCH="feature/${FEATURE_NAME// /-}" # Replace spaces with hyphens, add prefix
+# Sanitize for git branch name: lowercase, replace spaces/special chars with hyphens, remove invalid chars
+FEATURE_BRANCH="feature/$(echo "$FEATURE_NAME" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g' | sed 's/-\+/-/g' | sed 's/^-//;s/-$//')"
 WORKTREE_PATH="$PROJECT_ROOT/.worktrees/$FEATURE_BRANCH"
 MAIN_BRANCH=$(git rev-parse --abbrev-ref HEAD)
 
