@@ -1,134 +1,75 @@
 My take on [Ralph](https://www.aihero.dev/getting-started-with-ralph)
 
-## Model
+## [How It Works](https://excalidraw.com/#json=uAOLfwHkgc3OpG_ODOJe3,aCVSy0iwvnp81eU9KYP0mg)
 
-This version assumes you create the feature worktree yourself. Ralph then runs
-entirely inside that worktree, so the agent does not need to understand or manage
-worktrees.
-
-```text
-main checkout
-  src/
-  ...
-
-.worktrees/
-  feature-auth/
-    src/
-    .ralph/
-      ralph.sh
-      PRD.md
-      TRACK.md
-      progress.txt
-```
-
-Ralph state lives in `.ralph/` while the run is active. The agent can read and
-write progress normally because the state files are inside the same checkout as
-the code it is editing.
+<img width="10000" alt="image" src="https://github.com/user-attachments/assets/827702c4-3420-472b-ab60-4b5b80ddbdfa" />
 
 ## To Use
+1. Create and enter a feature worktree manually:
+    - `git worktree add -b feature/<your-feature> .worktrees/feature-<your-feature> main`
+    - `cd .worktrees/feature-<your-feature>`
+2. Copy Ralph into the worktree:
+    - `mkdir -p .ralph`
+    - `cp /path/to/RALPH/ralph.sh .ralph/ralph.sh`
+    - `chmod +x .ralph/ralph.sh`
+3. Tell the agent what you want to build and generate track with `/prd` skill:
+    - `.ralph/PRD.md` - What the feature is
+    - `.ralph/TRACK.md` - Steps to building it
+    - `.ralph/progress.txt` - Shared agent state
+4. Run `./.ralph/ralph.sh`
 
-1. Create a feature worktree manually.
+5. Or run in parallel from separate worktrees:
+    - `(cd .worktrees/feature-auth-feature && ./.ralph/ralph.sh) &`
+    - `(cd .worktrees/feature-dashboard-redesign && ./.ralph/ralph.sh) &`
 
-```bash
-git worktree add -b feature/auth .worktrees/feature-auth main
-cd .worktrees/feature-auth
+6. Before merging, remove Ralph run files if you do not want them in the final PR diff:
+    - `git rm -r .ralph`
+    - `git commit -m "chore: remove Ralph run files"`
+    - `git push`
+
+## File Structure
+```
+my-project/
+  ├── README.md
+  ├── src/
+  │   └── ... (main codebase)
+  │
+  ├── ralph.sh                         # local template copied into worktrees
+  │
+  ├── .worktrees/
+  │   ├── feature-auth-feature/        # isolated workspace + branch
+  │   │   ├── src/
+  │   │   │   └── ...
+  │   │   └── .ralph/
+  │   │       ├── ralph.sh             # runner for this worktree
+  │   │       ├── PRD.md               # what the feature is
+  │   │       ├── TRACK.md             # tasks and completion state
+  │   │       └── progress.txt         # shared agent state
+  │   │
+  │   └── feature-dashboard-redesign/
+  │       ├── src/
+  │       │   └── ...
+  │       └── .ralph/
+  │           ├── ralph.sh
+  │           ├── PRD.md
+  │           ├── TRACK.md
+  │           └── progress.txt
+  │
+  └── .git/refs/heads/
+      ├── main
+      ├── feature/auth-feature
+      └── feature/dashboard-redesign
 ```
 
-2. Copy Ralph into the worktree.
+---
 
-```bash
-mkdir -p .ralph
-cp /path/to/RALPH/ralph.sh .ralph/ralph.sh
-chmod +x .ralph/ralph.sh
-```
+**Each track**
+- Gets its own manually-created worktree at `.worktrees/feature-xxx/`
+- Gets its own git branch `feature/xxx`
+- Gets its own `.ralph/` state directory inside the worktree
+- Gets its own PR on GitHub
+- Runs independently from others
+- Uses task headings like `### [ ] T-001: Add priority field`
+- Marks complete tasks by changing `### [ ]` to `### [x]`
+- Can remove `.ralph/` before merge if you do not want Ralph files in the final PR diff
 
-3. Run the `/prd` skill from inside the worktree.
-
-It creates:
-
-```text
-.ralph/PRD.md
-.ralph/TRACK.md
-.ralph/progress.txt
-```
-
-4. Run Ralph.
-
-```bash
-./.ralph/ralph.sh
-```
-
-Optional arguments:
-
-```bash
-./.ralph/ralph.sh 20      # 20 iterations
-./.ralph/ralph.sh 20 5    # 20 iterations, 5s delay
-```
-
-5. Before merging, remove Ralph run files if you do not want them in the final
-PR diff.
-
-```bash
-git rm -r .ralph
-git commit -m "chore: remove Ralph run files"
-git push
-```
-
-If you squash merge, main receives the implementation without the temporary
-Ralph state files.
-
-## What Ralph Does
-
-Each iteration:
-
-1. Reads `.ralph/PRD.md`, `.ralph/TRACK.md`, and `.ralph/progress.txt`.
-2. Finds the first incomplete task heading in `.ralph/TRACK.md`.
-3. Implements exactly one task.
-4. Runs the relevant checks.
-5. If checks pass, marks that task heading complete.
-6. Appends learnings to `.ralph/progress.txt`.
-7. Commits the work.
-8. Pushes the branch and creates a PR if one does not exist.
-
-Task headings must use this format:
-
-```markdown
-### [ ] T-001: Add priority field to database
-```
-
-Ralph marks completion by changing the heading to:
-
-```markdown
-### [x] T-001: Add priority field to database
-```
-
-Acceptance criteria should be normal bullets, not checkbox bullets. This keeps
-task completion separate from acceptance criteria.
-
-## Parallel Runs
-
-Create one worktree per feature and run Ralph inside each one:
-
-```bash
-git worktree add -b feature/auth .worktrees/feature-auth main
-git worktree add -b feature/dashboard .worktrees/feature-dashboard main
-
-(cd .worktrees/feature-auth && ./.ralph/ralph.sh) &
-(cd .worktrees/feature-dashboard && ./.ralph/ralph.sh) &
-wait
-```
-
-Each worktree has its own `.ralph/` directory, branch, commits, and PR.
-
-## Local-Only State Option
-
-The default flow allows Ralph files to be committed temporarily and removed
-before merge. If you prefer Ralph state to never enter git history, add this to
-the worktree's local exclude file instead:
-
-```bash
-printf '\n.ralph/\n' >> "$(git rev-parse --git-path info/exclude)"
-```
-
-Then `.ralph/` remains local-only. The tradeoff is that the PR history will not
-show the PRD, track, or progress log.
