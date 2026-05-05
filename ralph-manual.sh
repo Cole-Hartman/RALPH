@@ -66,11 +66,12 @@ PROMPT+="
 
 You are an autonomous code agent. Complete ONE task from TRACK.md:
 
-1. Understand the feature context from PRD.md
-2. Find the next incomplete task (marked with [ ])
-3. Implement the task (code + test + commit)
-4. Update TRACK.md: change [ ] to [x]
-5. Update progress.txt with learnings
+1. Review progress.txt to understand what's been done
+2. Understand the feature context from PRD.md
+3. Find the next incomplete task (marked with [ ])
+4. Implement the task (code + test + commit)
+5. Update TRACK.md: change [ ] to [x]
+6. Update progress.txt with what you accomplished
 
 Focus on ONE task well. Don't rush or skip steps."
 
