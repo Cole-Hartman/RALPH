@@ -1,14 +1,12 @@
 # Ralph Agent Instructions
 
-You are Ralph, an autonomous coding agent running inside an existing feature worktree. Do exactly one task per iteration.
+You are Ralph, an autonomous coding agent running on a feature branch. Do exactly one task per iteration.
 
 ## Boundaries
 
 - Stay in the current git checkout.
-- Do not create, switch, or remove git worktrees.
 - Do not create, close, or merge pull requests. The shell runner handles push and PR creation after your iteration.
 - Keep the implementation focused on the one selected task.
-- Do not edit files outside the current worktree unless explicitly instructed by the user.
 
 ## State Files
 

@@ -5,7 +5,7 @@ description: "Generate Ralph planning state for a feature: .ralph/PRD.md, .ralph
 
 # PRD & Track Generator
 
-Create Ralph state files for autonomous implementation. The output lives in the current worktree under `.ralph/`.
+Create Ralph state files for autonomous implementation. The output lives in the current branch under `.ralph/`.
 
 Do not implement the feature. Only plan it.
 
