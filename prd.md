@@ -17,8 +17,6 @@ Create or update:
 - `ralph/TRACK.md` - ordered implementation tasks and completion state
 - `ralph/progress.txt` - append-only implementation memory
 
-The repository's `prompt.md` is used as a fixed template and should not be copied or modified.
-
 ## Workflow
 
 1. Ask for a feature name if one was not provided.
