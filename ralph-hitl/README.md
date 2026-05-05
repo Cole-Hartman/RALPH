@@ -25,8 +25,10 @@ Then run the `/prd` skill to generate state files:
 
 ## Usage
 
+Run from your project root:
+
 ```bash
-./.ralph/hitl.sh
+bash .ralph/hitl.sh
 ```
 
 This:
@@ -42,7 +44,7 @@ Check the output. If the task completed:
 
 Then run again when ready:
 ```bash
-./.ralph/hitl.sh
+bash .ralph/hitl.sh
 ```
 
 ## When to Use HITL vs Ralph

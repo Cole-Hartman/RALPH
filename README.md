@@ -13,7 +13,10 @@ My take on [Ralph](https://www.aihero.dev/getting-started-with-ralph)
     ```
 3. Initialize project:
     - Run the `/prd` skill to generate `.ralph/PRD.md`, `.ralph/TRACK.md`, `.ralph/progress.txt`, and `.ralph/prompt.md`
-4. Run `./.ralph/ralph.sh`
+4. Run the script from your project root:
+    ```bash
+    bash .ralph/ralph.sh
+    ```
 
 Optional: Before merging, remove Ralph run files if you do not want them in the final PR diff:
 - `git rm -r .ralph`
@@ -26,10 +29,10 @@ Same as Ralph, but you run one task at a time and stay in control:
 mkdir -p .ralph && cp ~/RALPH/ralph-hitl/hitl.sh .ralph/
 ```
 
-Then:
+Then run the script from your project root:
 ```bash
-./.ralph/hitl.sh        # Run one task
-./.ralph/hitl.sh        # Run the next task
+bash .ralph/hitl.sh        # Run one task
+bash .ralph/hitl.sh        # Run the next task
 # ... repeat as needed
 ```
 
