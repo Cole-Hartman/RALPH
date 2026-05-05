@@ -9,18 +9,44 @@
 # - Automatically detects completion when all tasks are marked [x]
 # - Manages GitHub PR creation and updates
 #
-# Usage: ./ralph.sh [max_iterations] [sleep_seconds]
-# Example: ./ralph.sh 10 2
+# Usage: ./ralph.sh [track_path] [max_iterations] [sleep_seconds]
+# Examples:
+#   ./ralph.sh tracks/my-feature/              # Run track in tracks/my-feature
+#   ./ralph.sh                                 # Run with TRACK.md in current directory
+#   ./ralph.sh tracks/my-feature 20 2          # Run 20 iterations with 2s delay
 ################################################################################
 set -e
 
-MAX=${1:-10}
-SLEEP=${2:-2}
+# Handle track path argument
+TRACK_PATH=${1:-.}
+MAX=${2:-10}
+SLEEP=${3:-2}
+
+# If track path provided, validate and change to it
+if [ "$TRACK_PATH" != "." ]; then
+    if [ ! -d "$TRACK_PATH" ]; then
+        echo "Error: Track directory not found: $TRACK_PATH"
+        exit 1
+    fi
+    if [ ! -f "$TRACK_PATH/TRACK.md" ]; then
+        echo "Error: TRACK.md not found in $TRACK_PATH"
+        exit 1
+    fi
+fi
+
+# Store the project root (before changing directories)
+PROJECT_ROOT=$(pwd)
+
+# Change to track directory if specified
+if [ "$TRACK_PATH" != "." ]; then
+    cd "$TRACK_PATH"
+    TRACK_PATH="."
+fi
 
 # Extract feature/track name from TRACK.md or use default
 FEATURE_NAME=$(grep -m1 "^# " TRACK.md 2>/dev/null | sed 's/^# //' || echo "feature")
 FEATURE_BRANCH="feature/${FEATURE_NAME// /-}" # Replace spaces with hyphens, add prefix
-WORKTREE_PATH=".worktrees/$FEATURE_BRANCH"
+WORKTREE_PATH="$PROJECT_ROOT/.worktrees/$FEATURE_BRANCH"
 MAIN_BRANCH=$(git rev-parse --abbrev-ref HEAD)
 
 echo "Starting Ralph - Max $MAX iterations"
@@ -198,7 +224,7 @@ Just end your response when done. The system will check if all tasks are [x] and
     INCOMPLETE_COUNT=$(grep -c "^- \[ \]" TRACK.md 2>/dev/null || echo "1")
 
     if [ "$INCOMPLETE_COUNT" -eq 0 ]; then
-        cd ../..
+        cd "$PROJECT_ROOT"
 
         # Check for PR after completion
         if command -v gh &> /dev/null; then
@@ -254,7 +280,7 @@ Just end your response when done. The system will check if all tasks are [x] and
 done
 
 # Cleanup on exit
-cd ../..
+cd "$PROJECT_ROOT"
 
 # Check for PR
 if command -v gh &> /dev/null; then
