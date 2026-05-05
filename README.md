@@ -17,12 +17,15 @@ Optional: Before merging, remove Ralph run files if you do not want them in the 
 - `git commit -m "chore: remove Ralph run files"`
 - `git push`
 
-## Ralph State Structure
-Each Ralph run maintains state in `.ralph/`:
-- `ralph.sh` - The runner script
-- `prompt.md` - Agent instructions
-- `PRD.md` - Feature overview and goals
-- `TRACK.md` - Ordered implementation tasks and completion state
-- `progress.txt` - Append-only log of iterations, patterns, and learnings
+## Key Files
 
-Task completion is tracked by markdown checkboxes: `### [ ] T-001: Task title` becomes `### [x] T-001: Task title`.
+| File | Purpose |
+|------|---------|
+| `ralph.sh` | The bash loop runner that spawns fresh Claude instances for each iteration |
+| `prompt.md` | Agent instructions: boundaries, state files, steps, and completion criteria |
+| `PRD.md` | Feature overview, goals, scope, and technical considerations |
+| `TRACK.md` | Ordered implementation tasks with acceptance criteria and completion state |
+| `progress.txt` | Append-only log of iterations, patterns discovered, and learnings for future runs |
+| `prd.md` | Guide for generating PRDs and breaking down features into Ralph tasks |
+
+Task completion is tracked by markdown checkboxes in `TRACK.md`: `### [ ] T-001: Task title` becomes `### [x] T-001: Task title`.
