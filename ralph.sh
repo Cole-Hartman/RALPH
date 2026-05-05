@@ -2,21 +2,21 @@
 ################################################################################
 # RALPH - Autonomous AI Loop Runner
 #
-# Expected state files:
-#   .ralph/prompt.md
-#   .ralph/PRD.md
-#   .ralph/TRACK.md
-#   .ralph/progress.txt
+# Expected state files (run from project root):
+#   ralph/prompt.md
+#   ralph/PRD.md
+#   ralph/TRACK.md
+#   ralph/progress.txt
 #
 # Usage:
-#   ./.ralph/ralph.sh
+#   bash ralph/ralph.sh
 #
 # Environment:
 #   RALPH_NO_PR=1    # Disable PR creation
 ################################################################################
 set -euo pipefail
 
-RALPH_DIR=".ralph"
+RALPH_DIR="ralph"
 
 # Check required files
 for file in "$RALPH_DIR"/{prompt.md,PRD.md,TRACK.md,progress.txt}; do
@@ -38,7 +38,7 @@ if command -v gh >/dev/null 2>&1 && [ "${RALPH_NO_PR:-0}" != "1" ]; then
             gh pr create \
                 -H "$CURRENT_BRANCH" \
                 --title "WIP: $CURRENT_BRANCH" \
-                --body "Ralph implementation track. See .ralph/PRD.md, .ralph/TRACK.md, and .ralph/progress.txt." 2>/dev/null || true
+                --body "Ralph implementation track. See ralph/PRD.md, ralph/TRACK.md, and ralph/progress.txt." 2>/dev/null || true
         fi
     fi
 fi
