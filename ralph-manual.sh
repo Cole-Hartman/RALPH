@@ -1,6 +1,6 @@
 #!/bin/bash
 ################################################################################
-# Ralph HITL - Human-In-The-Loop Task Runner
+# Ralph
 #
 # Run one task, watch the output, run again when ready.
 # No automatic spinup—you stay in control.
