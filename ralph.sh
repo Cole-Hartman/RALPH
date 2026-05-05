@@ -1,331 +1,365 @@
 #!/bin/bash
 ################################################################################
-# RALPH - Autonomous AI Loop Orchestrator
+# RALPH - Inside-Worktree Autonomous AI Loop Runner
 #
-# This script orchestrates an autonomous AI development loop that:
-# - Creates isolated git worktrees and branches for each feature
-# - Iteratively invokes Claude to implement one task per iteration
-# - Tracks progress via TRACK.md (tasks) and progress.txt (learnings)
-# - Automatically detects completion when all tasks are marked [x]
-# - Manages GitHub PR creation and updates
+# Run this from an already-created feature worktree. Ralph does not create,
+# switch, or remove worktrees. The current checkout is the agent's world.
 #
-# Usage: ./ralph.sh [track_path] [max_iterations] [sleep_seconds]
-# Examples:
-#   ./ralph.sh tracks/my-feature/              # Run track in tracks/my-feature
-#   ./ralph.sh                                 # Run with TRACK.md in current directory
-#   ./ralph.sh tracks/my-feature 20 2          # Run 20 iterations with 2s delay
+# Expected state files:
+#   .ralph/PRD.md
+#   .ralph/TRACK.md
+#   .ralph/progress.txt
+#
+# Usage:
+#   ./.ralph/ralph.sh                 # 10 iterations, 2s delay
+#   ./.ralph/ralph.sh 20              # 20 iterations, 2s delay
+#   ./.ralph/ralph.sh 20 5            # 20 iterations, 5s delay
+#
+# Environment:
+#   RALPH_DIR=.ralph                  # Override state directory
+#   RALPH_BASE_BRANCH=main            # Override PR base branch
+#   RALPH_NO_PR=1                     # Disable push/PR automation
 ################################################################################
-set -e
+set -euo pipefail
 
-# Handle track path argument
-TRACK_PATH=${1:-.}
-MAX=${2:-10}
-SLEEP=${3:-2}
+MAX=${1:-10}
+SLEEP=${2:-2}
 
-# If track path provided, validate and change to it
-if [ "$TRACK_PATH" != "." ]; then
-    if [ ! -d "$TRACK_PATH" ]; then
-        echo "Error: Track directory not found: $TRACK_PATH"
-        exit 1
-    fi
-    if [ ! -f "$TRACK_PATH/TRACK.md" ]; then
-        echo "Error: TRACK.md not found in $TRACK_PATH"
-        exit 1
-    fi
+if ! [[ "$MAX" =~ ^[0-9]+$ ]] || ! [[ "$SLEEP" =~ ^[0-9]+$ ]]; then
+    echo "Usage: $0 [max_iterations] [sleep_seconds]"
+    exit 1
 fi
 
-# Store the project root (before changing directories)
-PROJECT_ROOT=$(pwd)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Change to track directory if specified
-if [ "$TRACK_PATH" != "." ]; then
-    cd "$TRACK_PATH"
-    TRACK_PATH="."
+if ! PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null); then
+    echo "Error: Ralph must be run from inside a git worktree."
+    exit 1
 fi
 
-# Extract feature/track name from TRACK.md or use default
-FEATURE_NAME=$(grep -m1 "^# " TRACK.md 2>/dev/null | sed 's/^# //' || echo "feature")
-# Sanitize for git branch name: lowercase, replace spaces/special chars with hyphens, remove invalid chars
-SANITIZED=$(echo "$FEATURE_NAME" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g')
-# Collapse multiple consecutive hyphens into one
-while [[ "$SANITIZED" == *"--"* ]]; do
-    SANITIZED="${SANITIZED//--/-}"
-done
-# Remove leading/trailing hyphens
-SANITIZED="${SANITIZED#-}"
-SANITIZED="${SANITIZED%-}"
-FEATURE_BRANCH="feature/$SANITIZED"
-WORKTREE_PATH="$PROJECT_ROOT/.worktrees/$FEATURE_BRANCH"
-MAIN_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+cd "$PROJECT_ROOT"
 
-echo "Starting Ralph - Max $MAX iterations"
-echo "Feature: $FEATURE_NAME"
-echo "Branch: $FEATURE_BRANCH"
-echo ""
-
-# Determine if this is the first worker by checking if branch exists in git (source of truth)
-IS_FIRST=0
-if ! git rev-parse --verify "$FEATURE_BRANCH" >/dev/null 2>&1; then
-    IS_FIRST=1
-    echo "First worker detected (branch doesn't exist yet)"
-else
-    echo "Continuation worker detected (branch already exists)"
-fi
-
-echo ""
-
-# Create worktree for this feature/track
-if [ ! -d "$WORKTREE_PATH" ]; then
-    echo "Creating dedicated worktree with branch: $FEATURE_BRANCH"
-    mkdir -p .worktrees
-    # Check if branch already exists (git is source of truth)
-    if [ $IS_FIRST -eq 0 ]; then
-        # Branch exists, add worktree from existing branch
-        git worktree add "$WORKTREE_PATH" "$FEATURE_BRANCH"
-        echo "Worktree created from existing branch: $FEATURE_BRANCH"
+if [ -z "${RALPH_DIR:-}" ]; then
+    if [ "$(basename "$SCRIPT_DIR")" = ".ralph" ]; then
+        RALPH_DIR="$SCRIPT_DIR"
     else
-        # First worker: create new branch
-        git worktree add -b "$FEATURE_BRANCH" "$WORKTREE_PATH" "$MAIN_BRANCH"
-        echo "Worktree created with new branch: $FEATURE_BRANCH"
+        RALPH_DIR="$PROJECT_ROOT/.ralph"
     fi
-else
-    echo "Using existing worktree: $WORKTREE_PATH"
+elif [[ "$RALPH_DIR" != /* ]]; then
+    RALPH_DIR="$PROJECT_ROOT/$RALPH_DIR"
 fi
 
-echo ""
+PRD_FILE="$RALPH_DIR/PRD.md"
+TRACK_FILE="$RALPH_DIR/TRACK.md"
+PROGRESS_FILE="$RALPH_DIR/progress.txt"
 
-# Change to worktree for all work
-cd "$WORKTREE_PATH"
-
-# Check if PR already exists (will check again before creating)
-PR_URL=""
-if command -v gh &> /dev/null; then
-    PR_URL=$(gh pr list --head "$FEATURE_BRANCH" --json url -q '.[0].url' 2>/dev/null || echo "")
-    if [ -n "$PR_URL" ]; then
-        echo "Existing PR found: $PR_URL"
+for file in "$PRD_FILE" "$TRACK_FILE" "$PROGRESS_FILE"; do
+    if [ ! -f "$file" ]; then
+        echo "Error: Required Ralph state file not found: $file"
+        echo "Run the /prd skill in this worktree first, or create the .ralph files manually."
+        exit 1
     fi
+done
+
+CURRENT_BRANCH=$(git branch --show-current)
+if [ -z "$CURRENT_BRANCH" ]; then
+    echo "Error: Ralph cannot run from a detached HEAD."
+    exit 1
 fi
 
-echo ""
+detect_base_branch() {
+    if [ -n "${RALPH_BASE_BRANCH:-}" ]; then
+        echo "$RALPH_BASE_BRANCH"
+        return
+    fi
 
-for ((i=1; i<=$MAX; i++)); do
+    local origin_head
+    origin_head=$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' || true)
+    if [ -n "$origin_head" ]; then
+        echo "$origin_head"
+        return
+    fi
+
+    if git show-ref --verify --quiet refs/heads/main; then
+        echo "main"
+        return
+    fi
+
+    if git show-ref --verify --quiet refs/heads/master; then
+        echo "master"
+        return
+    fi
+
     echo ""
-    echo "╔════════════════════════════════════════════════════════════╗"
-    echo "║  Iteration $i of $MAX  |  $(date '+%Y-%m-%d %H:%M:%S')"
-    echo "║  Branch: $FEATURE_BRANCH"
-    echo "║  Worktree: $WORKTREE_PATH"
-    echo "╚════════════════════════════════════════════════════════════╝"
-    echo ""
+}
 
-    # Build prompt dynamically to handle PR instructions
-    # Note: IS_FIRST is determined at startup based on git branch existence
-    if [ $IS_FIRST -eq 1 ]; then
-        if [ -z "$PR_URL" ]; then
-            PR_SECTION="## FIRST WORKER: Create PR + Implement Task
+BASE_BRANCH=$(detect_base_branch)
+if [ -z "$BASE_BRANCH" ]; then
+    echo "Error: Could not detect base branch. Set RALPH_BASE_BRANCH=main and retry."
+    exit 1
+fi
 
-After your first commit and push, create the PR with:
-\`\`\`bash
-gh pr create -B $MAIN_BRANCH -H $FEATURE_BRANCH --title 'WIP: $FEATURE_NAME' --body 'Track: $FEATURE_NAME. See PRD.md and TRACK.md for details.'
-\`\`\`
+if [ "$CURRENT_BRANCH" = "$BASE_BRANCH" ]; then
+    echo "Error: Ralph is running on '$BASE_BRANCH'. Create and cd into a feature worktree first."
+    exit 1
+fi
 
-Your commits will automatically update this PR."
-        else
-            PR_SECTION="## FIRST WORKER: Implement Task
+BASE_REF="$BASE_BRANCH"
+if git show-ref --verify --quiet "refs/remotes/origin/$BASE_BRANCH"; then
+    BASE_REF="origin/$BASE_BRANCH"
+fi
 
-PR already exists: $PR_URL
-Your commits will automatically update this PR."
+FEATURE_NAME=$(awk '/^# / { sub(/^# /, ""); print; exit }' "$TRACK_FILE")
+if [ -z "$FEATURE_NAME" ]; then
+    FEATURE_NAME="$CURRENT_BRANCH"
+fi
+
+task_count() {
+    awk '/^### \[[ xX]\] / { count++ } END { print count + 0 }' "$TRACK_FILE"
+}
+
+incomplete_count() {
+    awk '/^### \[ \] / { count++ } END { print count + 0 }' "$TRACK_FILE"
+}
+
+next_task() {
+    awk '/^### \[ \] / { sub(/^### \[ \] /, ""); print; exit }' "$TRACK_FILE"
+}
+
+get_pr_url() {
+    if command -v gh >/dev/null 2>&1; then
+        gh pr list --head "$CURRENT_BRANCH" --json url -q '.[0].url' 2>/dev/null || true
+    fi
+}
+
+commits_ahead() {
+    git rev-list --count "$BASE_REF..HEAD" 2>/dev/null || echo "0"
+}
+
+ensure_pr() {
+    if [ "${RALPH_NO_PR:-0}" = "1" ]; then
+        return 0
+    fi
+
+    if ! command -v gh >/dev/null 2>&1; then
+        echo "GitHub CLI not found; skipping PR automation."
+        return 0
+    fi
+
+    if ! git remote get-url origin >/dev/null 2>&1; then
+        echo "No origin remote configured; skipping push and PR automation."
+        return 0
+    fi
+
+    local ahead
+    ahead=$(commits_ahead)
+    if [ "$ahead" -eq 0 ]; then
+        echo "No commits ahead of $BASE_REF yet; PR not created."
+        return 0
+    fi
+
+    echo "Pushing $CURRENT_BRANCH to origin..."
+    if ! git push -u origin "$CURRENT_BRANCH"; then
+        echo "Warning: git push failed; skipping PR creation for now."
+        return 0
+    fi
+
+    local pr_url
+    pr_url=$(get_pr_url)
+    if [ -n "$pr_url" ]; then
+        echo "PR: $pr_url"
+        return 0
+    fi
+
+    echo "Creating PR from $CURRENT_BRANCH to $BASE_BRANCH..."
+    if gh pr create \
+        -B "$BASE_BRANCH" \
+        -H "$CURRENT_BRANCH" \
+        --title "WIP: $FEATURE_NAME" \
+        --body "Ralph implementation track. See .ralph/PRD.md, .ralph/TRACK.md, and .ralph/progress.txt on this branch while the run is active."; then
+        pr_url=$(get_pr_url)
+        if [ -n "$pr_url" ]; then
+            echo "PR created: $pr_url"
         fi
     else
-        PR_SECTION="## CONTINUATION WORKER: Implement Task (PR already created)
+        echo "Warning: PR creation failed; continuing."
+    fi
+}
 
-Previous worker created the PR. Your commits automatically update it."
+finish_success() {
+    local iterations_used=$1
+
+    ensure_pr
+    echo ""
+    echo "SUCCESS - All Ralph tasks are complete."
+    echo "Iterations used: $iterations_used of $MAX"
+    echo "Branch: $CURRENT_BRANCH"
+    echo ""
+    echo "Before merging, remove Ralph run files if you do not want them in the final PR diff:"
+    echo "  git rm -r .ralph"
+    echo "  git commit -m \"chore: remove Ralph run files\""
+    echo "  git push"
+    exit 0
+}
+
+TASK_COUNT=$(task_count)
+if [ "$TASK_COUNT" -eq 0 ]; then
+    echo "Error: $TRACK_FILE has no Ralph task headings."
+    echo "Expected task headings like: ### [ ] T-001: Add database field"
+    exit 1
+fi
+
+echo "Starting Ralph - Max $MAX iterations"
+echo "Project: $PROJECT_ROOT"
+echo "State: $RALPH_DIR"
+echo "Feature: $FEATURE_NAME"
+echo "Branch: $CURRENT_BRANCH"
+echo "Base: $BASE_BRANCH"
+echo ""
+
+for ((i=1; i<=MAX; i++)); do
+    REMAINING=$(incomplete_count)
+    if [ "$REMAINING" -eq 0 ]; then
+        finish_success "$((i - 1))"
     fi
 
-    # Extract last failure/blocker if this isn't the first iteration
+    NEXT_TASK=$(next_task)
+
+    echo ""
+    echo "==============================================================="
+    echo "  Ralph Iteration $i of $MAX | $(date '+%Y-%m-%d %H:%M:%S')"
+    echo "  Branch: $CURRENT_BRANCH"
+    echo "  Remaining tasks: $REMAINING"
+    echo "  Next task: $NEXT_TASK"
+    echo "==============================================================="
+    echo ""
+
     FAILURE_CONTEXT=""
-    if [ $IS_FIRST -eq 0 ] && [ -f "progress.txt" ]; then
-        # Get the last iteration entry (most recent failure)
-        LAST_ENTRY=$(tac progress.txt | sed -n '/^## Iteration/,/^---$/p' | tac | head -20)
+    if [ "$i" -gt 1 ] && [ -f "$PROGRESS_FILE" ]; then
+        LAST_ENTRY=$(awk '
+            /^## Iteration / { entry=$0 ORS; next }
+            entry != "" { entry=entry $0 ORS }
+            END { printf "%s", entry }
+        ' "$PROGRESS_FILE" | tail -60)
+
         if [[ "$LAST_ENTRY" == *"FAILED"* ]] || [[ "$LAST_ENTRY" == *"failed"* ]] || [[ "$LAST_ENTRY" == *"Error"* ]]; then
             FAILURE_CONTEXT="
 
-⚠️  PREVIOUS ITERATION FAILED - Read this carefully:
+PREVIOUS ITERATION MAY HAVE FAILED - read this carefully:
 
 $LAST_ENTRY"
         fi
     fi
 
-    # Create temp file to capture output while streaming to terminal
-    ITERATION_OUTPUT=$(mktemp)
-    trap "rm -f $ITERATION_OUTPUT" EXIT
-
     echo "[$(date '+%H:%M:%S')] Starting Claude agent..."
     echo ""
 
-    result=$(claude --dangerously-skip-permissions -p "You are Ralph, an autonomous coding agent. Do exactly ONE task per iteration.
+    PROMPT="You are Ralph, an autonomous coding agent running inside an existing feature worktree. Do exactly ONE task per iteration.
 
 ## Metadata
 
 Iteration: $i of $MAX
-Worker Role: $([ $IS_FIRST -eq 1 ] && echo 'FIRST (creates/uses PR)' || echo 'CONTINUATION')
+Project root: $PROJECT_ROOT
+Current branch: $CURRENT_BRANCH
+Base branch: $BASE_BRANCH
+Ralph state directory: $RALPH_DIR
 
-## Environment
+## Boundaries
 
-Worktree: $WORKTREE_PATH
-Branch: $FEATURE_BRANCH
-All work is isolated. Commits go to this branch only.
+- Stay in the current git checkout.
+- Do not create, switch, or remove git worktrees.
+- Do not create or close pull requests. The shell runner handles push and PR creation after your iteration.
+- Keep the implementation focused on the one selected task.
 
-$PR_SECTION
+## State Files
+
+Read:
+- $PRD_FILE
+- $TRACK_FILE
+- $PROGRESS_FILE
+
+Write progress only to:
+- $TRACK_FILE
+- $PROGRESS_FILE
 
 ## Steps
 
-1. Read PRD.md for the feature overview
-2. Read TRACK.md for the implementation roadmap
-3. Find the first task that is NOT complete (marked \\[ \\]).
-4. Read progress.txt - check the Learnings section first for patterns from previous iterations.
+1. Read the PRD for feature context.
+2. Read TRACK.md for the implementation roadmap.
+3. Find the first incomplete task heading marked exactly like: ### [ ] T-001: Task title
+4. Read progress.txt, especially the Learnings section, for previous patterns and blockers.
 5. Implement that ONE task only.
-6. Run tests/typecheck to verify it works.
+6. Run the relevant checks for this codebase, such as tests, lint, typecheck, or browser verification.
 
-## Critical: Only Complete If Tests Pass
+## Critical: Only Complete If Checks Pass
 
-- If tests PASS:
-  - Update TRACK.md to mark the task complete (change \\[ \\] to \\[x\\])
-  - Commit your changes with message: feat: [task description]
-  - Append what worked to progress.txt
+If checks PASS:
+- Mark only the selected task heading complete in TRACK.md by changing ### [ ] to ### [x].
+- Append what worked to progress.txt.
+- Commit all changes, including Ralph state files, with message: feat: [task id] - [task title]
 
-- If tests FAIL:
-  - Do NOT mark the task complete
-  - Do NOT commit broken code
-  - Append what went wrong to progress.txt (so next iteration can learn)
+If checks FAIL:
+- Do NOT mark the task complete.
+- Do NOT commit broken code.
+- Append what failed to progress.txt so the next iteration can learn from it.
 
 ## Progress Notes Format
 
 Append to progress.txt using this format:
 
-## Iteration \\[N\\] - \\[Task Name\\]
+## Iteration [N] - [Task ID: Task Name]
+- Status: PASSED or FAILED
 - What was implemented
 - Files changed
+- Checks run
 - Learnings for future iterations:
   - Patterns discovered
   - Gotchas encountered
   - Useful context
 ---
 
-## Update AGENTS.md (If Applicable)
+## Update AGENTS.md or CLAUDE.md If Applicable
 
-If you discover a reusable pattern that future work should know about:
-- Check if AGENTS.md exists in the project root
-- Add patterns like: 'This codebase uses X for Y' or 'Always do Z when changing W'
-- Only add genuinely reusable knowledge, not task-specific details
+If you discover a genuinely reusable codebase pattern, add it to the nearest relevant AGENTS.md or CLAUDE.md. Do not add task-specific details there.
 
 ## End Condition
 
-Just end your response when done. The system will check if all tasks are \\[x\\] and continue or complete.$FAILURE_CONTEXT")
+End your response when done. The shell runner will check TRACK.md and continue or stop.$FAILURE_CONTEXT"
 
-    # Display the result with section header
+    RESULT=$(claude --dangerously-skip-permissions -p "$PROMPT")
+
     echo ""
-    echo "─── Claude Agent Output ───────────────────────────────────────"
-    echo "$result" | tee "$ITERATION_OUTPUT"
-    echo "─── End Output ────────────────────────────────────────────────"
+    echo "----- Claude Agent Output --------------------------------------"
+    echo "$RESULT"
+    echo "----- End Output -----------------------------------------------"
     echo ""
 
-    # Check if all tasks are complete by counting incomplete markers in TRACK.md
-    INCOMPLETE_COUNT=$(grep -c "^- \[ \]" TRACK.md 2>/dev/null || echo "1")
+    REMAINING=$(incomplete_count)
+    ensure_pr
 
-    if [ "$INCOMPLETE_COUNT" -eq 0 ]; then
-        cd "$PROJECT_ROOT"
-
-        # Check for PR after completion
-        if command -v gh &> /dev/null; then
-            FINAL_PR=$(gh pr list --head "$FEATURE_BRANCH" --json url -q '.[0].url' 2>/dev/null || echo "")
-        fi
-
-        echo ""
-        echo "╔════════════════════════════════════════════════════════════╗"
-        echo "║  ✓ SUCCESS - All tasks complete!"
-        echo "║  Iterations: $i of $MAX"
-        echo "║  Duration: Started at beginning, completed now"
-        echo "╚════════════════════════════════════════════════════════════╝"
-        echo ""
-        echo "Feature Implementation Summary:"
-        echo "  Feature:        $FEATURE_NAME"
-        echo "  Branch:         $FEATURE_BRANCH"
-        echo "  Worktree:       $WORKTREE_PATH"
-        if [ -n "$FINAL_PR" ]; then
-            echo "  Pull Request:   $FINAL_PR"
-        fi
-        echo ""
-        echo "Next steps:"
-        if [ -n "$FINAL_PR" ]; then
-            echo "  1. Review: $FINAL_PR"
-            echo "  2. Merge:  git merge --ff-only $FEATURE_BRANCH"
-        else
-            echo "  1. View commits: git log $FEATURE_BRANCH --oneline"
-            echo "  2. Merge:        git merge --ff-only $FEATURE_BRANCH"
-        fi
-        echo "  3. Cleanup:      git worktree remove $WORKTREE_PATH"
-        echo ""
-        exit 0
+    if [ "$REMAINING" -eq 0 ]; then
+        finish_success "$i"
     fi
 
-    # Safety check: if first worker and no PR exists after iteration, create it
-    # (handles case where agent didn't create PR or concurrent workers)
-    if [ $IS_FIRST -eq 1 ] && [ -z "$PR_URL" ]; then
-        # Check again if PR exists (another worker might have created it)
-        LATEST_PR=$(gh pr list --head "$FEATURE_BRANCH" --json url -q '.[0].url' 2>/dev/null || echo "")
-        if [ -z "$LATEST_PR" ] && git log --oneline | head -1 >/dev/null 2>&1; then
-            # Branch has commits but no PR exists, create it
-            echo "[$(date '+%H:%M:%S')] Creating PR (first worker, agent didn't create one)..."
-            gh pr create -B "$MAIN_BRANCH" -H "$FEATURE_BRANCH" --title "WIP: $FEATURE_NAME" --body "Track: $FEATURE_NAME. See PRD.md and TRACK.md for details." 2>/dev/null
-            PR_URL=$(gh pr list --head "$FEATURE_BRANCH" --json url -q '.[0].url' 2>/dev/null || echo "")
-            if [ -n "$PR_URL" ]; then
-                echo "✓ PR created: $PR_URL"
-            fi
-        fi
-    fi
-
-    echo "[$(date '+%H:%M:%S')] Iteration $i complete. Remaining tasks: $INCOMPLETE_COUNT. Waiting ${SLEEP}s before next iteration..."
-    sleep $SLEEP
+    echo "[$(date '+%H:%M:%S')] Iteration $i complete. Remaining tasks: $REMAINING. Waiting ${SLEEP}s..."
+    sleep "$SLEEP"
 done
 
-# Cleanup on exit
-cd "$PROJECT_ROOT"
+REMAINING=$(incomplete_count)
+PR_URL=$(get_pr_url)
 
-# Check for PR
-if command -v gh &> /dev/null; then
-    FINAL_PR=$(gh pr list --head "$FEATURE_BRANCH" --json url -q '.[0].url' 2>/dev/null || echo "")
+echo ""
+echo "Max iterations ($MAX) reached."
+echo "Remaining tasks: $REMAINING"
+echo "Branch: $CURRENT_BRANCH"
+if [ -n "$PR_URL" ]; then
+    echo "PR: $PR_URL"
 fi
-
-# Count remaining incomplete tasks
-REMAINING_INCOMPLETE=$(grep -c "^- \[ \]" "$WORKTREE_PATH/TRACK.md" 2>/dev/null || echo "?")
-
-echo ""
-echo "╔════════════════════════════════════════════════════════════╗"
-echo "║  Max iterations ($MAX) reached"
-echo "║  Remaining incomplete tasks: $REMAINING_INCOMPLETE"
-echo "╚════════════════════════════════════════════════════════════╝"
-echo ""
-echo "Work in Progress:"
-echo "  Feature:        $FEATURE_NAME"
-echo "  Branch:         $FEATURE_BRANCH"
-echo "  Worktree:       $WORKTREE_PATH"
-if [ -n "$FINAL_PR" ]; then
-    echo "  Pull Request:   $FINAL_PR"
-fi
-echo ""
-echo "Check progress:"
-echo "  Remaining tasks: cat $WORKTREE_PATH/TRACK.md"
-echo "  Recent commits:  git log $FEATURE_BRANCH -5 --oneline"
-echo "  PR updates:      $([ -n "$FINAL_PR" ] && echo "$FINAL_PR" || echo "(no PR created yet)")"
 echo ""
 echo "To continue:"
-echo "  ./ralph.sh 20  # Run 20 more iterations"
+echo "  ./.ralph/ralph.sh 20"
 echo ""
 echo "To inspect:"
-echo "  cd $WORKTREE_PATH && cat TRACK.md  # See remaining tasks"
-echo "  git log --oneline                  # View all commits"
-echo ""
-echo "To clean up when done:"
-echo "  git worktree remove $WORKTREE_PATH"
-echo ""
+echo "  cat $TRACK_FILE"
+echo "  tail -80 $PROGRESS_FILE"
 exit 1

@@ -1,61 +1,64 @@
 ---
 name: prd
-description: "Generate a Product Requirements Document (PRD.md) and Task Track (TRACK.md) for a new feature. Use when planning a feature, starting a new project, or when asked to create a PRD. Triggers on: create a prd, write prd for, plan this feature, requirements for, spec out."
+description: "Generate .ralph/PRD.md, .ralph/TRACK.md, and .ralph/progress.txt for a feature that will be implemented by the Ralph loop. Use when planning a feature, starting a new Ralph run, or asked to create a PRD. Triggers on: create a prd, write prd for, plan this feature, requirements for, spec out."
 ---
 
 ################################################################################
 # PRD & Track Generator Skill
 #
-# This skill generates structured Product Requirements Documents and Task Tracks
-# optimized for autonomous AI implementation via the Ralph loop.
+# This skill creates Ralph state files inside the current feature worktree.
+# Ralph state is intentionally colocated with the code while the run is active:
 #
-# Creates three files:
-# - PRD.md: Strategic overview (goals, scope, technical considerations)
-# - TRACK.md: Implementation roadmap (tasks organized by phase with acceptance criteria)
-# - progress.txt: Shared state log (patterns, learnings, blockers)
+# - .ralph/PRD.md: Strategic feature overview
+# - .ralph/TRACK.md: Ordered implementation tasks
+# - .ralph/progress.txt: Append-only agent memory
 #
-# Key principle: Every task must be completable in one AI iteration (~10 min, one context window)
+# Key principle: every task must fit one Ralph iteration.
 ################################################################################
 
 # PRD & Track Generator
 
-Create detailed Product Requirements Documents and implementation tracks that are clear, actionable, and suitable for autonomous AI implementation via the Ralph loop.
+Create detailed planning files that are clear, actionable, and suitable for autonomous implementation by the Ralph loop.
+
+Important: do not start implementing the feature. Only create the Ralph state files.
 
 ---
 
 ## The Job
 
-1. Receive a feature description from the user
-2. Ask 3-5 essential clarifying questions (with lettered options)
-3. Generate a structured PRD based on answers
-4. Save `PRD.md` (strategic overview)
-5. Save `TRACK.md` (implementation phases and tasks)
-6. Create empty `progress.txt`
+1. Receive a feature description from the user.
+2. Ask 3-5 essential clarifying questions with lettered options.
+3. Generate a structured PRD based on the answers.
+4. Save `.ralph/PRD.md`.
+5. Save `.ralph/TRACK.md`.
+6. Create `.ralph/progress.txt`.
 
-**Important:** Do NOT start implementing. Just create the PRD and TRACK.
+The user should run this skill from inside the feature worktree where Ralph will run.
 
 ---
 
 ## Step 1: Feature Name
 
-First, ask for a feature name that will be used to create the track directory.
+Ask for a feature name if one was not provided.
 
-Example: "What would you like to name this feature? (e.g., 'user-auth', 'dashboard-redesign')"
+Example: "What would you like to name this feature? (for example, user-auth or dashboard-redesign)"
 
-This will create: `tracks/<feature-name>/`
+Use this name for the PRD title and track title. Do not create `tracks/<feature-name>/`; Ralph state lives in `.ralph/`.
+
+---
 
 ## Step 2: Clarifying Questions
 
 Ask only critical questions where the initial prompt is ambiguous. Focus on:
 
-- **Problem/Goal:** What problem does this solve?
-- **Core Functionality:** What are the key actions?
-- **Scope/Boundaries:** What should it NOT do?
-- **Success Criteria:** How do we know it's done?
+- Problem/goal: What problem does this solve?
+- Core functionality: What are the key actions?
+- Scope/boundaries: What should it not do?
+- Success criteria: How do we know it is done?
 
-### Format Questions Like This:
+Format questions like this:
 
-```
+```text
 1. What is the primary goal of this feature?
    A. Improve user onboarding experience
    B. Increase user retention
@@ -79,138 +82,174 @@ This lets users respond with "1A, 2C, 3B" for quick iteration.
 
 ---
 
-## Step 3: Task Sizing (THE NUMBER ONE RULE)
+## Step 3: Task Sizing
 
-**Each task must be completable in ONE context window (~10 min of AI work).**
+Every task must be completable in one Ralph iteration: roughly one focused context window.
 
-Ralph spawns a fresh instance per iteration with no memory of previous work. If a task is too big, the AI runs out of context before finishing and produces broken code.
+Right-sized tasks:
 
-### Right-sized tasks:
-- Add a database column and migration
-- Add a single UI component to an existing page
-- Update a server action with new logic
-- Add a filter dropdown to a list
+- Add a database column and migration.
+- Add one UI component to an existing page.
+- Update one server action with new logic.
+- Add a filter dropdown to a list.
 
-### Too big (MUST split):
+Too big and must be split:
+
 | Too Big | Split Into |
-|---------|-----------|
-| "Build the dashboard" | Schema, queries, UI components, filters |
-| "Add authentication" | Schema, middleware, login UI, session handling |
-| "Add drag and drop" | Drag events, drop zones, state update, persistence |
-| "Refactor the API" | One endpoint or pattern at a time |
+| --- | --- |
+| Build the dashboard | Schema, queries, UI components, filters |
+| Add authentication | Schema, middleware, login UI, session handling |
+| Add drag and drop | Drag events, drop zones, state update, persistence |
+| Refactor the API | One endpoint or pattern at a time |
 
-**Rule of thumb:** If you cannot describe the change in 2-3 sentences, it is too big.
-
----
-
-## Step 4: Task Ordering (Dependencies First)
-
-Tasks execute in priority order. Earlier tasks must NOT depend on later ones.
-
-**Correct order:**
-1. Schema/database changes (migrations)
-2. Server actions / backend logic
-3. UI components that use the backend
-4. Dashboard/summary views that aggregate data
-
-**Wrong order:**
-```
-T-001: UI component (depends on schema that doesn't exist yet!)
-T-002: Schema change
-```
+Rule of thumb: if the task cannot be described in 2-3 sentences, it is too big.
 
 ---
 
-## Step 5: Acceptance Criteria (Must Be Verifiable)
+## Step 4: Task Ordering
 
-Each criterion must be something Ralph can CHECK, not something vague.
+Tasks execute from top to bottom. Earlier tasks must not depend on later tasks.
 
-### Good criteria (verifiable):
-- "Add `status` column to tasks table with default 'pending'"
-- "Filter dropdown has options: All, Active, Completed"
-- "Clicking delete shows confirmation dialog"
-- "Typecheck passes"
-- "Tests pass"
+Good order:
 
-### Bad criteria (vague):
-- "Works correctly"
-- "User can do X easily"
-- "Good UX"
-- "Handles edge cases"
+1. Schema/database changes.
+2. Server actions/backend logic.
+3. UI components that use the backend.
+4. Summary views and polish.
 
-### Always include as final criterion:
-```
-"Typecheck passes"
+Bad order:
+
+```text
+T-001: Build UI for a field that does not exist yet.
+T-002: Add the database field.
 ```
 
-### For stories that change UI, also include:
+---
+
+## Step 5: Acceptance Criteria
+
+Each acceptance criterion must be something Ralph can check. Avoid vague criteria.
+
+Good criteria:
+
+- Add `status` column to tasks table with default `pending`.
+- Filter dropdown has options: All, Active, Completed.
+- Clicking delete shows a confirmation dialog.
+- Typecheck passes.
+- Tests pass.
+
+Bad criteria:
+
+- Works correctly.
+- User can do it easily.
+- Good UX.
+- Handles edge cases.
+
+Always include:
+
+```text
+Typecheck passes.
 ```
-"Verify changes work in browser"
+
+For tasks with testable logic, include:
+
+```text
+Tests pass.
+```
+
+For UI tasks, include:
+
+```text
+Verify changes work in browser.
 ```
 
 ---
 
 ## PRD Structure
 
-Generate the PRD with these sections:
+Create `.ralph/PRD.md` with these sections:
 
-### 1. Introduction
-Brief description of the feature and the problem it solves.
+```markdown
+# PRD: [Feature Name]
 
-### 2. Goals
-Specific, measurable objectives (bullet list).
+## Introduction
+[Brief description of the feature and problem.]
 
-### 3. Scope & Deliverables
-What's included in this feature. Clear boundaries of what will be delivered.
+## Goals
+- [Specific measurable objective]
 
-### 4. Non-Goals
-What this feature will NOT include. Critical for scope.
+## Scope & Deliverables
+- [Included deliverable]
 
-### 5. Technical Considerations (Optional)
-- Known constraints
-- Existing components to reuse
-- Architecture patterns to follow
+## Non-Goals
+- [Explicitly out of scope]
+
+## Technical Considerations
+- [Known constraints, patterns, or components to reuse]
+```
 
 ---
 
 ## TRACK Structure
 
-Generate the TRACK with these sections:
+Create `.ralph/TRACK.md` with task headings in this exact status format:
 
-### 1. Overview
-Summary of the implementation approach and phases.
-
-### 2. Implementation Phases
-Organize tasks by phase or logical grouping. Each phase contains:
-
-**Format:**
 ```markdown
+# [Feature Name] Implementation Track
+
+## Overview
+[Summary of the implementation approach.]
+
 ## Phase 1: [Phase Name]
 
-### Task 1: [Title]
-[2-3 sentence description of what needs to be done]
+### [ ] T-001: [Task Title]
+[2-3 sentence description of what needs to be done.]
 
-**Acceptance Criteria:**
-- [ ] Specific verifiable criterion
-- [ ] Another criterion
-- [ ] Typecheck passes
-- [ ] [UI tasks] Verify changes work in browser
+Acceptance Criteria:
+- [Specific verifiable criterion]
+- Typecheck passes.
 
-### Task 2: [Title]
-[Description]
+### [ ] T-002: [Task Title]
+[2-3 sentence description.]
 
-**Acceptance Criteria:**
-- [ ] ...
+Acceptance Criteria:
+- [Specific verifiable criterion]
+- Tests pass.
+- Typecheck passes.
+
+## Dependencies & Notes
+- [Important dependency or implementation note.]
 ```
 
-### 3. Dependencies & Notes
-Any cross-phase dependencies or important implementation notes.
+Important task-format rules:
+
+- Every task heading must start with `### [ ] T-001:` style status.
+- Use sequential task IDs: `T-001`, `T-002`, `T-003`.
+- Do not use checkbox bullets for acceptance criteria. Ralph only marks task headings complete.
+- Ralph marks a task complete by changing `### [ ]` to `### [x]`.
+
+---
+
+## progress.txt Structure
+
+Create `.ralph/progress.txt` with:
+
+```markdown
+# Ralph Progress Log
+
+## Learnings
+(Reusable patterns discovered during implementation.)
+
+---
+```
+
+Ralph appends iteration notes to this file. Do not prefill task-specific progress.
 
 ---
 
 ## Example Output
 
-### PRD.md
+Create `.ralph/PRD.md`:
 
 ```markdown
 # PRD: Task Priority System
@@ -221,131 +260,112 @@ Add priority levels to tasks so users can focus on what matters most. Tasks can 
 
 ## Goals
 
-- Allow assigning priority (high/medium/low) to any task
-- Provide clear visual differentiation between priority levels
-- Enable filtering by priority
-- Default new tasks to medium priority
+- Allow assigning priority to any task.
+- Provide clear visual differentiation between priority levels.
+- Enable filtering by priority.
+- Default new tasks to medium priority.
 
 ## Scope & Deliverables
 
-- Priority field in database with three levels
-- Visual indicators on task cards
-- Priority selector in task edit interface
-- Filter by priority in task list
-- URL-based filter persistence
+- Priority field in the database.
+- Visual indicators on task cards.
+- Priority selector in task edit interface.
+- Filter by priority in task list.
 
 ## Non-Goals
 
-- No priority-based notifications or reminders
-- No automatic priority assignment based on due date
-- No priority inheritance for subtasks
+- No priority-based notifications.
+- No automatic priority assignment based on due date.
+- No priority inheritance for subtasks.
 
 ## Technical Considerations
 
-- Reuse existing badge component with color variants
-- Filter state managed via URL search params
-- Database migration required for priority column
+- Reuse existing badge component with color variants.
+- Filter state should use URL search params.
+- Database migration is required for priority column.
 ```
 
-### TRACK.md
+Create `.ralph/TRACK.md`:
 
 ```markdown
-# Task Priority Implementation Track
+# Task Priority System Implementation Track
 
 ## Overview
 
-Implementation organized in three phases: database foundation, UI display, and user interaction features.
+Implementation is organized in dependency order: database foundation, UI display, editing, and filtering.
 
 ## Phase 1: Database & Foundation
 
-### Task 1: Add priority field to database
-Add the priority column to tasks table with appropriate enum type and default value.
+### [ ] T-001: Add priority field to database
+Add the priority column to the tasks table with the appropriate enum type and default value.
 
-**Acceptance Criteria:**
-- [ ] Create migration file for priority column
-- [ ] Priority field: 'high' | 'medium' | 'low' (default 'medium')
-- [ ] Migration runs successfully
-- [ ] Typecheck passes
+Acceptance Criteria:
+- Create migration file for priority column.
+- Priority field supports high, medium, and low values with default medium.
+- Migration runs successfully.
+- Typecheck passes.
 
-## Phase 2: Display & Visualization
+## Phase 2: Display & Interaction
 
-### Task 2: Display priority indicator on task cards
+### [ ] T-002: Display priority indicator on task cards
 Show visual priority indicators on each task card.
 
-**Acceptance Criteria:**
-- [ ] Each task card shows colored priority badge (red=high, yellow=medium, gray=low)
-- [ ] Priority visible without hovering or clicking
-- [ ] Typecheck passes
-- [ ] Verify changes work in browser
+Acceptance Criteria:
+- Each task card shows a colored priority badge.
+- Priority is visible without hovering or clicking.
+- Typecheck passes.
+- Verify changes work in browser.
 
-## Phase 3: User Interaction
-
-### Task 3: Add priority selector to task edit
+### [ ] T-003: Add priority selector to task edit
 Allow users to change priority when editing a task.
 
-**Acceptance Criteria:**
-- [ ] Priority dropdown in task edit modal
-- [ ] Shows current priority as selected
-- [ ] Saves immediately on selection change
-- [ ] Typecheck passes
-- [ ] Verify changes work in browser
+Acceptance Criteria:
+- Priority dropdown appears in the task edit modal.
+- Dropdown shows the current priority.
+- Selection saves successfully.
+- Typecheck passes.
+- Verify changes work in browser.
 
-### Task 4: Filter tasks by priority
+### [ ] T-004: Filter tasks by priority
 Enable filtering the task list by priority level.
 
-**Acceptance Criteria:**
-- [ ] Filter dropdown with options: All | High | Medium | Low
-- [ ] Filter persists in URL params
-- [ ] Empty state message when no tasks match filter
-- [ ] Typecheck passes
-- [ ] Verify changes work in browser
+Acceptance Criteria:
+- Filter dropdown has options: All, High, Medium, Low.
+- Filter persists in URL params.
+- Empty state appears when no tasks match.
+- Typecheck passes.
+- Verify changes work in browser.
 
 ## Dependencies & Notes
 
-- Phase 1 must complete before Phase 2 and 3
-- Phases 2 and 3 can run in parallel
-- Filter state should use URL search params for bookmarking
+- T-001 must complete before UI tasks.
+- Filtering should reuse existing URL search param patterns.
 ```
 
----
+Create `.ralph/progress.txt`:
 
-## Output
-
-Create the directory `tracks/<feature-name>/` and save the following files inside it:
-
-### PRD.md
-Strategic overview of the feature: introduction, goals, scope, non-goals, and technical considerations.
-
-### TRACK.md
-Implementation roadmap: phases, tasks, acceptance criteria, and dependencies.
-
-### progress.txt
-Create an empty progress file:
 ```markdown
-# Progress Log
+# Ralph Progress Log
 
 ## Learnings
-(Patterns discovered during implementation)
+(Reusable patterns discovered during implementation.)
 
 ---
 ```
-
-**Important:** Make sure all three files are created in the `tracks/<feature-name>/` directory, not in the root.
 
 ---
 
 ## Checklist Before Saving
 
-- [ ] Got feature name from user
-- [ ] Created `tracks/<feature-name>/` directory
-- [ ] Asked clarifying questions with lettered options
-- [ ] Incorporated user's answers
-- [ ] Each task completable in ONE iteration (small enough)
-- [ ] Tasks ordered by dependency (schema → backend → frontend)
-- [ ] All criteria are verifiable (not vague)
-- [ ] Every task has "Typecheck passes" as criterion
-- [ ] UI tasks have "Verify changes work in browser"
-- [ ] PRD has clear introduction, goals, scope, and non-goals
-- [ ] TRACK has phases with tasks and acceptance criteria
-- [ ] TRACK includes dependencies section
-- [ ] Saved PRD.md, TRACK.md, and progress.txt in `tracks/<feature-name>/`
+- [ ] Created `.ralph/` in the current worktree.
+- [ ] Created `.ralph/PRD.md`.
+- [ ] Created `.ralph/TRACK.md`.
+- [ ] Created `.ralph/progress.txt`.
+- [ ] Asked clarifying questions with lettered options.
+- [ ] Incorporated the user's answers.
+- [ ] Each task is small enough for one Ralph iteration.
+- [ ] Tasks are ordered by dependency.
+- [ ] Every task heading uses `### [ ] T-001:` format.
+- [ ] Acceptance criteria are verifiable and do not use checkbox bullets.
+- [ ] Every task includes Typecheck passes.
+- [ ] UI tasks include browser verification.
