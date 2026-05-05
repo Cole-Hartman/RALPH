@@ -6,6 +6,7 @@
 # switch, or remove worktrees. The current checkout is the agent's world.
 #
 # Expected state files:
+#   .ralph/prompt.md
 #   .ralph/PRD.md
 #   .ralph/TRACK.md
 #   .ralph/progress.txt
@@ -52,8 +53,9 @@ fi
 PRD_FILE="$RALPH_DIR/PRD.md"
 TRACK_FILE="$RALPH_DIR/TRACK.md"
 PROGRESS_FILE="$RALPH_DIR/progress.txt"
+PROMPT_FILE="$RALPH_DIR/prompt.md"
 
-for file in "$PRD_FILE" "$TRACK_FILE" "$PROGRESS_FILE"; do
+for file in "$PROMPT_FILE" "$PRD_FILE" "$TRACK_FILE" "$PROGRESS_FILE"; do
     if [ ! -f "$file" ]; then
         echo "Error: Required Ralph state file not found: $file"
         echo "Run the /prd skill in this worktree first, or create the .ralph files manually."
@@ -254,77 +256,35 @@ $LAST_ENTRY"
     echo "[$(date '+%H:%M:%S')] Starting Claude agent..."
     echo ""
 
-    PROMPT="You are Ralph, an autonomous coding agent running inside an existing feature worktree. Do exactly ONE task per iteration.
-
-## Metadata
+    RUNTIME_PROMPT="## Ralph Runtime Metadata
 
 Iteration: $i of $MAX
 Project root: $PROJECT_ROOT
 Current branch: $CURRENT_BRANCH
 Base branch: $BASE_BRANCH
 Ralph state directory: $RALPH_DIR
-
-## Boundaries
-
-- Stay in the current git checkout.
-- Do not create, switch, or remove git worktrees.
-- Do not create or close pull requests. The shell runner handles push and PR creation after your iteration.
-- Keep the implementation focused on the one selected task.
+Next task: $NEXT_TASK
 
 ## State Files
 
-Read:
+PRD file:
 - $PRD_FILE
+
+TRACK file:
 - $TRACK_FILE
+
+Progress file:
 - $PROGRESS_FILE
 
-Write progress only to:
-- $TRACK_FILE
-- $PROGRESS_FILE
+## Runner-Owned Responsibilities
 
-## Steps
+- The shell runner handles push and PR creation after your iteration.
+- The shell runner checks TRACK.md after your iteration to decide whether to continue.
 
-1. Read the PRD for feature context.
-2. Read TRACK.md for the implementation roadmap.
-3. Find the first incomplete task heading marked exactly like: ### [ ] T-001: Task title
-4. Read progress.txt, especially the Learnings section, for previous patterns and blockers.
-5. Implement that ONE task only.
-6. Run the relevant checks for this codebase, such as tests, lint, typecheck, or browser verification.
+"
 
-## Critical: Only Complete If Checks Pass
-
-If checks PASS:
-- Mark only the selected task heading complete in TRACK.md by changing ### [ ] to ### [x].
-- Append what worked to progress.txt.
-- Commit all changes, including Ralph state files, with message: feat: [task id] - [task title]
-
-If checks FAIL:
-- Do NOT mark the task complete.
-- Do NOT commit broken code.
-- Append what failed to progress.txt so the next iteration can learn from it.
-
-## Progress Notes Format
-
-Append to progress.txt using this format:
-
-## Iteration [N] - [Task ID: Task Name]
-- Status: PASSED or FAILED
-- What was implemented
-- Files changed
-- Checks run
-- Learnings for future iterations:
-  - Patterns discovered
-  - Gotchas encountered
-  - Useful context
----
-
-## Update AGENTS.md or CLAUDE.md If Applicable
-
-If you discover a genuinely reusable codebase pattern, add it to the nearest relevant AGENTS.md or CLAUDE.md. Do not add task-specific details there.
-
-## End Condition
-
-End your response when done. The shell runner will check TRACK.md and continue or stop.$FAILURE_CONTEXT"
+    PROMPT="$RUNTIME_PROMPT
+$(cat "$PROMPT_FILE")$FAILURE_CONTEXT"
 
     RESULT=$(claude --dangerously-skip-permissions -p "$PROMPT")
 

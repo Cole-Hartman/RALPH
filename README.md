@@ -11,8 +11,10 @@ My take on [Ralph](https://excalidraw.com/#json=82mlJ_il7lpeY4YwrS9EU,-AKcGcG30b
 2. Copy Ralph into the worktree:
     - `mkdir -p .ralph`
     - `cp /path/to/RALPH/ralph.sh .ralph/ralph.sh`
+    - `cp /path/to/RALPH/prompt.md .ralph/prompt.md`
     - `chmod +x .ralph/ralph.sh`
 3. Tell the agent what you want to build and generate track with `/prd` skill:
+    - `.ralph/prompt.md` - Main agent instructions
     - `.ralph/PRD.md` - What the feature is
     - `.ralph/TRACK.md` - Steps to building it
     - `.ralph/progress.txt` - Shared agent state
@@ -40,6 +42,7 @@ my-project/
   │   │   │   └── ...
   │   │   └── .ralph/
   │   │       ├── ralph.sh             # runner for this worktree
+  │   │       ├── prompt.md            # main agent instructions
   │   │       ├── PRD.md               # what the feature is
   │   │       ├── TRACK.md             # tasks and completion state
   │   │       └── progress.txt         # shared agent state
@@ -49,6 +52,7 @@ my-project/
   │       │   └── ...
   │       └── .ralph/
   │           ├── ralph.sh
+  │           ├── prompt.md
   │           ├── PRD.md
   │           ├── TRACK.md
   │           └── progress.txt
@@ -65,9 +69,9 @@ my-project/
 - Gets its own manually-created worktree at `.worktrees/feature-xxx/`
 - Gets its own git branch `feature/xxx`
 - Gets its own `.ralph/` state directory inside the worktree
+- Gets its main agent instructions from `.ralph/prompt.md`
 - Gets its own PR on GitHub
 - Runs independently from others
 - Uses task headings like `### [ ] T-001: Add priority field`
 - Marks complete tasks by changing `### [ ]` to `### [x]`
 - Can remove `.ralph/` before merge if you do not want Ralph files in the final PR diff
-

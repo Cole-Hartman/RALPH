@@ -1,6 +1,6 @@
 ---
 name: prd
-description: "Generate .ralph/PRD.md, .ralph/TRACK.md, and .ralph/progress.txt for a feature that will be implemented by the Ralph loop. Use when planning a feature, starting a new Ralph run, or asked to create a PRD. Triggers on: create a prd, write prd for, plan this feature, requirements for, spec out."
+description: "Generate .ralph/PRD.md, .ralph/TRACK.md, .ralph/progress.txt, and .ralph/prompt.md for a feature that will be implemented by the Ralph loop. Use when planning a feature, starting a new Ralph run, or asked to create a PRD. Triggers on: create a prd, write prd for, plan this feature, requirements for, spec out."
 ---
 
 ################################################################################
@@ -9,6 +9,7 @@ description: "Generate .ralph/PRD.md, .ralph/TRACK.md, and .ralph/progress.txt f
 # This skill creates Ralph state files inside the current feature worktree.
 # Ralph state is intentionally colocated with the code while the run is active:
 #
+# - .ralph/prompt.md: Agent instructions
 # - .ralph/PRD.md: Strategic feature overview
 # - .ralph/TRACK.md: Ordered implementation tasks
 # - .ralph/progress.txt: Append-only agent memory
@@ -29,9 +30,10 @@ Important: do not start implementing the feature. Only create the Ralph state fi
 1. Receive a feature description from the user.
 2. Ask 3-5 essential clarifying questions with lettered options.
 3. Generate a structured PRD based on the answers.
-4. Save `.ralph/PRD.md`.
-5. Save `.ralph/TRACK.md`.
-6. Create `.ralph/progress.txt`.
+4. Save `.ralph/prompt.md` if it does not already exist.
+5. Save `.ralph/PRD.md`.
+6. Save `.ralph/TRACK.md`.
+7. Create `.ralph/progress.txt`.
 
 The user should run this skill from inside the feature worktree where Ralph will run.
 
@@ -167,6 +169,39 @@ Verify changes work in browser.
 
 ## PRD Structure
 
+Create `.ralph/prompt.md` by copying the Ralph prompt template from this repository. If `.ralph/prompt.md` already exists, leave it in place unless the user asks you to refresh it.
+
+The prompt template should contain the durable agent instructions. It should not contain per-run metadata such as iteration number, branch, or absolute file paths; `ralph.sh` prepends those at runtime.
+
+Minimum `.ralph/prompt.md` content:
+
+```markdown
+# Ralph Agent Instructions
+
+You are Ralph, an autonomous coding agent running inside an existing feature worktree. Do exactly one task per iteration.
+
+## Boundaries
+
+- Stay in the current git checkout.
+- Do not create, switch, or remove git worktrees.
+- Do not create, close, or merge pull requests. The shell runner handles push and PR creation after your iteration.
+- Keep the implementation focused on the one selected task.
+
+## Steps
+
+1. Read the PRD for feature context.
+2. Read TRACK.md for the implementation roadmap.
+3. Find the first incomplete task heading marked exactly like: `### [ ] T-001: Task title`.
+4. Read progress.txt, especially the Learnings section, for previous patterns and blockers.
+5. Implement that one task only.
+6. Run the relevant checks for this codebase.
+
+## Critical: Only Complete If Checks Pass
+
+If checks pass, mark only the selected task heading complete, append progress, and commit the work.
+If checks fail, do not mark the task complete and do not commit broken code.
+```
+
 Create `.ralph/PRD.md` with these sections:
 
 ```markdown
@@ -249,7 +284,7 @@ Ralph appends iteration notes to this file. Do not prefill task-specific progres
 
 ## Example Output
 
-Create `.ralph/PRD.md`:
+Create `.ralph/prompt.md` from the Ralph prompt template, then create `.ralph/PRD.md`:
 
 ```markdown
 # PRD: Task Priority System
@@ -358,6 +393,7 @@ Create `.ralph/progress.txt`:
 ## Checklist Before Saving
 
 - [ ] Created `.ralph/` in the current worktree.
+- [ ] Created or preserved `.ralph/prompt.md`.
 - [ ] Created `.ralph/PRD.md`.
 - [ ] Created `.ralph/TRACK.md`.
 - [ ] Created `.ralph/progress.txt`.
