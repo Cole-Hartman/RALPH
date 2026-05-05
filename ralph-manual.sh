@@ -1,9 +1,9 @@
 #!/bin/bash
 ################################################################################
-# Ralph
+# Ralph Manual - Run One Task at a Time
 #
 # Run one task, watch the output, run again when ready.
-# No automatic spinup—you stay in control.
+# You control when each task runs.
 #
 # Expected state files:
 #   .ralph/PRD.md
@@ -40,7 +40,7 @@ NEXT_TASK=$(get_task)
 
 echo ""
 echo "==============================================================="
-echo "  Ralph HITL - One Task"
+echo "  Ralph Manual - One Task"
 echo "  Branch: $CURRENT_BRANCH"
 echo "  Remaining tasks: $REMAINING"
 echo "  Next task: $NEXT_TASK"
@@ -48,7 +48,7 @@ echo "==============================================================="
 echo ""
 
 # Build prompt
-PROMPT="## Ralph HITL - One Task
+PROMPT="## Ralph Manual - One Task
 
 Project: $PROJECT_ROOT
 Branch: $CURRENT_BRANCH
