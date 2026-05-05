@@ -1,8 +1,8 @@
-My take on [Ralph](https://www.aihero.dev/getting-started-with-ralph)
+My take on [Ralph](https://excalidraw.com/#json=82mlJ_il7lpeY4YwrS9EU,-AKcGcG30b0dhgmQa5tZIA)
 
 ## [How It Works](https://excalidraw.com/#json=uAOLfwHkgc3OpG_ODOJe3,aCVSy0iwvnp81eU9KYP0mg)
 
-<img width="10000" alt="image" src="https://github.com/user-attachments/assets/827702c4-3420-472b-ab60-4b5b80ddbdfa" />
+<img width="7096" height="3090" alt="image" src="https://github.com/user-attachments/assets/daf19d43-8ff4-41c2-85b3-313359f05249" />
 
 ## To Use
 1. Create and enter a feature worktree manually:
