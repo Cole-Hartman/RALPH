@@ -25,35 +25,77 @@ done
 PROJECT_ROOT=$(git rev-parse --show-toplevel)
 CURRENT_BRANCH=$(git branch --show-current)
 
-count_tasks() { awk '/^### \[ \] / { count++ } END { print count + 0 }' "$RALPH_DIR/TRACK.md"; }
-get_task() { awk '/^### \[ \] / { sub(/^### \[ \] /, ""); print; exit }' "$RALPH_DIR/TRACK.md"; }
+get_current_phase() {
+    awk '/^## Phase / { phase=$0; phaseline=NR } /^### \[ \] / { if (NR > phaseline && phase ~ /^## Phase/) { print phase; exit } }' "$RALPH_DIR/TRACK.md"
+}
 
-REMAINING=$(count_tasks)
+count_tasks_in_phase() {
+    local phase="$1"
+    awk -v phase="$phase" '
+        BEGIN { in_phase=0; count=0 }
+        $0 == phase { in_phase=1; next }
+        /^## Phase / && in_phase { exit }
+        in_phase && /^### \[ \] / { count++ }
+        END { print count }
+    ' "$RALPH_DIR/TRACK.md"
+}
 
-if [ "$REMAINING" -eq 0 ]; then
-    echo "All tasks complete!"
+count_remaining_in_phase() {
+    local phase="$1"
+    awk -v phase="$phase" '
+        BEGIN { in_phase=0; count=0 }
+        $0 == phase { in_phase=1; next }
+        /^## Phase / && in_phase { exit }
+        in_phase && /^### \[ \] / { count++ }
+        END { print count + 0 }
+    ' "$RALPH_DIR/TRACK.md"
+}
+
+get_task() {
+    local phase="$1"
+    awk -v phase="$phase" '
+        BEGIN { in_phase=0 }
+        $0 == phase { in_phase=1; next }
+        /^## Phase / && in_phase { exit }
+        in_phase && /^### \[ \] / { sub(/^### \[ \] /, ""); print; exit }
+    ' "$RALPH_DIR/TRACK.md"
+}
+
+CURRENT_PHASE=$(get_current_phase)
+
+if [ -z "$CURRENT_PHASE" ]; then
+    echo "All phases complete!"
     exit 0
 fi
 
-# Get next task
-NEXT_TASK=$(get_task)
+REMAINING=$(count_remaining_in_phase "$CURRENT_PHASE")
+
+if [ "$REMAINING" -eq 0 ]; then
+    echo "Current phase complete! Run again to continue to the next phase."
+    exit 0
+fi
+
+# Get next task in current phase
+NEXT_TASK=$(get_task "$CURRENT_PHASE")
 
 echo ""
 echo "==============================================================="
-echo "  Ralph Manual - One Task"
+echo "  Ralph Manual - One Phase"
 echo "  Branch: $CURRENT_BRANCH"
-echo "  Remaining tasks: $REMAINING"
+echo "  Current phase: $CURRENT_PHASE"
+echo "  Remaining in phase: $REMAINING"
 echo "  Next task: $NEXT_TASK"
 echo "==============================================================="
 echo ""
 
 # Build prompt
-PROMPT="## Ralph Manual - One Task
+PROMPT="## Ralph Manual - Complete One Phase
 
 Project: $PROJECT_ROOT
 Branch: $CURRENT_BRANCH
+Current phase: $CURRENT_PHASE
+Remaining in phase: $REMAINING
 Next task: $NEXT_TASK
-Remaining: $REMAINING
 
 ## Recent Progress
 
@@ -64,16 +106,16 @@ PROMPT+="
 
 ## Instructions
 
-You are an autonomous code agent. Complete ONE task from TRACK.md:
+You are an autonomous code agent. Complete the next task in the current phase:
 
 1. Review progress.txt to understand what's been done
 2. Understand the feature context from PRD.md
-3. Find the next incomplete task (marked with [ ])
+3. Find the next incomplete task in $CURRENT_PHASE (marked with [ ])
 4. Implement the task (code + test + commit)
 5. Update TRACK.md: change [ ] to [x]
 6. Update progress.txt with what you accomplished
 
-Focus on ONE task well. Don't rush or skip steps."
+Once this task is done, the script will run again to complete the next task in the phase. Keep going until all tasks in the phase are complete."
 
 echo "[$(date '+%H:%M:%S')] Starting Claude agent..."
 echo ""
@@ -87,7 +129,7 @@ echo "----- End Output -----------------------------------------------"
 echo ""
 
 # Check if task was completed
-NEW_REMAINING=$(count_tasks)
+NEW_REMAINING=$(count_remaining_in_phase "$CURRENT_PHASE")
 
 if [ "$NEW_REMAINING" -lt "$REMAINING" ]; then
     echo "✓ Task completed!"
@@ -96,6 +138,11 @@ else
 fi
 
 echo ""
-echo "Remaining tasks: $NEW_REMAINING"
+echo "Remaining in phase: $NEW_REMAINING"
 echo ""
-echo "Run this script again to do the next task."
+
+if [ "$NEW_REMAINING" -eq 0 ]; then
+    echo "Phase complete! Run this script again to move to the next phase."
+else
+    echo "Run this script again to complete the next task in $CURRENT_PHASE."
+fi
