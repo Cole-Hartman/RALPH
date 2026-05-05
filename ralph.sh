@@ -17,17 +17,10 @@
 set -euo pipefail
 
 RALPH_DIR=".ralph"
-PRD_FILE="$RALPH_DIR/PRD.md"
-TRACK_FILE="$RALPH_DIR/TRACK.md"
-PROGRESS_FILE="$RALPH_DIR/progress.txt"
-PROMPT_FILE="$RALPH_DIR/prompt.md"
 
-# Check state files exist
-for file in "$PROMPT_FILE" "$PRD_FILE" "$TRACK_FILE" "$PROGRESS_FILE"; do
-    if [ ! -f "$file" ]; then
-        echo "Error: Required Ralph state file not found: $file"
-        exit 1
-    fi
+# Check required files
+for file in "$RALPH_DIR"/{prompt.md,PRD.md,TRACK.md,progress.txt}; do
+    [ -f "$file" ] || { echo "Error: Missing $file"; exit 1; }
 done
 
 PROJECT_ROOT=$(git rev-parse --show-toplevel)
@@ -55,8 +48,11 @@ echo "Project: $PROJECT_ROOT"
 echo "Branch: $CURRENT_BRANCH"
 echo ""
 
+count_tasks() { awk '/^### \[ \] / { count++ } END { print count + 0 }' "$RALPH_DIR/TRACK.md"; }
+get_task() { awk '/^### \[ \] / { sub(/^### \[ \] /, ""); print; exit }' "$RALPH_DIR/TRACK.md"; }
+
 for ((i=1; i<=10; i++)); do
-    REMAINING=$(awk '/^### \[ \] / { count++ } END { print count + 0 }' "$TRACK_FILE")
+    REMAINING=$(count_tasks)
 
     if [ "$REMAINING" -eq 0 ]; then
         echo ""
@@ -65,7 +61,7 @@ for ((i=1; i<=10; i++)); do
         exit 0
     fi
 
-    NEXT_TASK=$(awk '/^### \[ \] / { sub(/^### \[ \] /, ""); print; exit }' "$TRACK_FILE")
+    NEXT_TASK=$(get_task)
 
     echo ""
     echo "==============================================================="
@@ -75,40 +71,26 @@ for ((i=1; i<=10; i++)); do
     echo "==============================================================="
     echo ""
 
-    # Build runtime metadata
-    RUNTIME_PROMPT="## Ralph Runtime Metadata
+    # Build prompt with runtime context
+    PROMPT="## Ralph Runtime Metadata
 
 Iteration: $i of 10
-Project root: $PROJECT_ROOT
-Current branch: $CURRENT_BRANCH
-Ralph state directory: $RALPH_DIR
+Project: $PROJECT_ROOT
+Branch: $CURRENT_BRANCH
 Next task: $NEXT_TASK
 
-## State Files
-
-PRD file: $PRD_FILE
-TRACK file: $TRACK_FILE
-Progress file: $PROGRESS_FILE
-
 ## Recent Progress
-
 "
+    [ "$i" -gt 1 ] && PROMPT+="$(tail -60 "$RALPH_DIR/progress.txt")" || PROMPT+="(First iteration)"
 
-    # Add recent progress context if not first iteration
-    if [ "$i" -gt 1 ] && [ -f "$PROGRESS_FILE" ]; then
-        RUNTIME_PROMPT+="$(tail -60 "$PROGRESS_FILE")
+    PROMPT+="
 
-"
-    fi
+## Runner Responsibilities
 
-    RUNTIME_PROMPT+="## Runner-Owned Responsibilities
+- Push and manage the PR after your iteration
+- Check TRACK.md to decide whether to continue
 
-- The shell runner will push and manage the PR after your iteration.
-- The shell runner checks TRACK.md to decide whether to continue.
-"
-
-    PROMPT="$RUNTIME_PROMPT
-$(cat "$PROMPT_FILE")"
+$(cat "$RALPH_DIR/prompt.md")"
 
     echo "[$(date '+%H:%M:%S')] Starting Claude agent..."
     echo ""
@@ -126,8 +108,7 @@ done
 
 echo ""
 echo "Max iterations (10) reached."
-REMAINING=$(awk '/^### \[ \] / { count++ } END { print count + 0 }' "$TRACK_FILE")
-echo "Remaining tasks: $REMAINING"
+echo "Remaining tasks: $(count_tasks)"
 echo ""
 echo "To continue, run this script again from your project root."
 exit 1
