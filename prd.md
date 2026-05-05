@@ -36,7 +36,15 @@ Create detailed Product Requirements Documents and implementation tracks that ar
 
 ---
 
-## Step 1: Clarifying Questions
+## Step 1: Feature Name
+
+First, ask for a feature name that will be used to create the track directory.
+
+Example: "What would you like to name this feature? (e.g., 'user-auth', 'dashboard-redesign')"
+
+This will create: `tracks/<feature-name>/`
+
+## Step 2: Clarifying Questions
 
 Ask only critical questions where the initial prompt is ambiguous. Focus on:
 
@@ -71,7 +79,7 @@ This lets users respond with "1A, 2C, 3B" for quick iteration.
 
 ---
 
-## Step 2: Task Sizing (THE NUMBER ONE RULE)
+## Step 3: Task Sizing (THE NUMBER ONE RULE)
 
 **Each task must be completable in ONE context window (~10 min of AI work).**
 
@@ -95,7 +103,7 @@ Ralph spawns a fresh instance per iteration with no memory of previous work. If 
 
 ---
 
-## Step 3: Task Ordering (Dependencies First)
+## Step 4: Task Ordering (Dependencies First)
 
 Tasks execute in priority order. Earlier tasks must NOT depend on later ones.
 
@@ -113,7 +121,7 @@ T-002: Schema change
 
 ---
 
-## Step 4: Acceptance Criteria (Must Be Verifiable)
+## Step 5: Acceptance Criteria (Must Be Verifiable)
 
 Each criterion must be something Ralph can CHECK, not something vague.
 
@@ -303,7 +311,7 @@ Enable filtering the task list by priority level.
 
 ## Output
 
-Save both files in the current directory:
+Create the directory `tracks/<feature-name>/` and save the following files inside it:
 
 ### PRD.md
 Strategic overview of the feature: introduction, goals, scope, non-goals, and technical considerations.
@@ -311,7 +319,8 @@ Strategic overview of the feature: introduction, goals, scope, non-goals, and te
 ### TRACK.md
 Implementation roadmap: phases, tasks, acceptance criteria, and dependencies.
 
-Also create `progress.txt`:
+### progress.txt
+Create an empty progress file:
 ```markdown
 # Progress Log
 
@@ -321,10 +330,14 @@ Also create `progress.txt`:
 ---
 ```
 
+**Important:** Make sure all three files are created in the `tracks/<feature-name>/` directory, not in the root.
+
 ---
 
 ## Checklist Before Saving
 
+- [ ] Got feature name from user
+- [ ] Created `tracks/<feature-name>/` directory
 - [ ] Asked clarifying questions with lettered options
 - [ ] Incorporated user's answers
 - [ ] Each task completable in ONE iteration (small enough)
@@ -335,4 +348,4 @@ Also create `progress.txt`:
 - [ ] PRD has clear introduction, goals, scope, and non-goals
 - [ ] TRACK has phases with tasks and acceptance criteria
 - [ ] TRACK includes dependencies section
-- [ ] Saved PRD.md, TRACK.md, and progress.txt
+- [ ] Saved PRD.md, TRACK.md, and progress.txt in `tracks/<feature-name>/`
