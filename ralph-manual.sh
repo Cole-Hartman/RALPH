@@ -5,17 +5,17 @@
 # Run one task, watch the output, run again when ready.
 # You control when each task runs.
 #
-# Expected state files:
-#   ralph/PRD.md
-#   ralph/TRACK.md
-#   ralph/progress.txt
+# Expected state files (run from inside ralph/ directory):
+#   PRD.md
+#   TRACK.md
+#   progress.txt
 #
 # Usage:
-#   bash ralph/ralph-manual.sh
+#   cd ralph && bash ralph-manual.sh
 ################################################################################
 set -euo pipefail
 
-RALPH_DIR="ralph"
+RALPH_DIR="."
 
 # Check required files
 for file in "$RALPH_DIR"/{PRD.md,TRACK.md,progress.txt}; do
