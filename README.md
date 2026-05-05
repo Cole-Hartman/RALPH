@@ -9,18 +9,34 @@ My take on [Ralph](https://www.aihero.dev/getting-started-with-ralph)
 1. Ensure you're on a feature branch / worktree.
 2. Copy the Ralph into your project:
     ```bash
-    mkdir -p .ralph && cp ~/RALPH/ralph.sh .ralph/
+    mkdir -p ralph && cp ~/RALPH/ralph.sh ralph/
     ```
 3. Initialize project:
-    - Run the `/prd` skill to generate `.ralph/PRD.md`, `.ralph/TRACK.md`, `.ralph/progress.txt`, and `.ralph/prompt.md`
+    - Run the `/prd` skill to generate `ralph/PRD.md`, `ralph/TRACK.md`, and `ralph/progress.txt`
+    - Copy `prompt.md` from the repository into the `ralph/` directory
 4. Run the script from your project root:
     ```bash
-    bash .ralph/ralph.sh
+    bash ralph/ralph.sh
     ```
 
 Optional: Before merging, remove Ralph run files if you do not want them in the final PR diff:
-- `git rm -r .ralph`
+- `git rm -r ralph`
 
+
+## File Structure
+
+```
+my-project/
+  ├── src/
+  │   └── ... (main codebase)
+  │
+  └── ralph/
+      ├── ralph.sh              # The bash loop runner
+      ├── prompt.md             # Agent instructions
+      ├── PRD.md                # Feature overview and goals
+      ├── TRACK.md              # Implementation tasks and state
+      └── progress.txt          # Iteration log and learnings
+```
 
 ## Key Files
 

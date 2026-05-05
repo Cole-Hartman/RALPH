@@ -1,11 +1,11 @@
 ---
 name: prd
-description: "Generate Ralph planning state for a feature: .ralph/PRD.md, .ralph/TRACK.md, .ralph/progress.txt, and .ralph/prompt.md. Use when planning a feature, starting a new Ralph run, or asked to create a PRD. Triggers on: create a prd, write prd for, plan this feature, requirements for, spec out."
+description: "Generate Ralph planning state for a feature: ralph/PRD.md, ralph/TRACK.md, and ralph/progress.txt. Use when planning a feature, starting a new Ralph run, or asked to create a PRD. Triggers on: create a prd, write prd for, plan this feature, requirements for, spec out."
 ---
 
 # PRD & Track Generator
 
-Create Ralph state files for autonomous implementation. The output lives in the current branch under `.ralph/`.
+Create Ralph state files for autonomous implementation. The output lives in the current branch under `ralph/`.
 
 Do not implement the feature. Only plan it.
 
@@ -13,21 +13,20 @@ Do not implement the feature. Only plan it.
 
 Create or update:
 
-- `.ralph/prompt.md` - agent instructions for each Ralph iteration
-- `.ralph/PRD.md` - strategic feature overview
-- `.ralph/TRACK.md` - ordered implementation tasks and completion state
-- `.ralph/progress.txt` - append-only implementation memory
+- `ralph/PRD.md` - strategic feature overview
+- `ralph/TRACK.md` - ordered implementation tasks and completion state
+- `ralph/progress.txt` - append-only implementation memory
 
-If `.ralph/prompt.md` already exists, preserve it unless the user explicitly asks to refresh it. If it does not exist, copy the repository's `prompt.md` template into `.ralph/prompt.md`.
+The repository's `prompt.md` is used as a fixed template and should not be copied or modified.
 
 ## Workflow
 
 1. Ask for a feature name if one was not provided.
 2. Ask 3-5 essential clarifying questions with lettered options.
-3. Generate `.ralph/PRD.md`.
-4. Generate `.ralph/TRACK.md`.
-5. Create `.ralph/progress.txt`.
-6. Confirm that all output files are under `.ralph/`.
+3. Generate `ralph/PRD.md`.
+4. Generate `ralph/TRACK.md`.
+5. Create `ralph/progress.txt`.
+6. Confirm that all output files are under `ralph/`.
 
 Ask only critical questions. Focus on:
 
@@ -115,7 +114,7 @@ Important:
 
 ## PRD Template
 
-Write `.ralph/PRD.md` like this:
+Write `ralph/PRD.md` like this:
 
 ```markdown
 # PRD: [Feature Name]
@@ -143,7 +142,7 @@ Write `.ralph/PRD.md` like this:
 
 ## TRACK Template
 
-Write `.ralph/TRACK.md` like this:
+Write `ralph/TRACK.md` like this:
 
 ```markdown
 # [Feature Name] Implementation Track
@@ -176,7 +175,7 @@ Acceptance Criteria:
 
 ## progress.txt Template
 
-Write `.ralph/progress.txt` like this:
+Write `ralph/progress.txt` like this:
 
 ```markdown
 # Ralph Progress Log
@@ -190,7 +189,7 @@ Write `.ralph/progress.txt` like this:
 
 ## Example
 
-`.ralph/TRACK.md` example:
+`ralph/TRACK.md` example:
 
 ```markdown
 # Task Priority System Implementation Track
@@ -239,11 +238,10 @@ Acceptance Criteria:
 
 ## Checklist
 
-- [ ] Created `.ralph/`.
-- [ ] Created or preserved `.ralph/prompt.md`.
-- [ ] Created `.ralph/PRD.md`.
-- [ ] Created `.ralph/TRACK.md`.
-- [ ] Created `.ralph/progress.txt`.
+- [ ] Created `ralph/`.
+- [ ] Created `ralph/PRD.md`.
+- [ ] Created `ralph/TRACK.md`.
+- [ ] Created `ralph/progress.txt`.
 - [ ] Asked only necessary clarifying questions.
 - [ ] Tasks are small enough for one Ralph iteration.
 - [ ] Tasks are ordered by dependency.
