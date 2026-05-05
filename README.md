@@ -22,21 +22,6 @@ Optional: Before merging, remove Ralph run files if you do not want them in the 
 - `git rm -r .ralph`
 
 
-## File Structure
-
-```
-my-project/
-  ├── src/
-  │   └── ... (main codebase)
-  │
-  └── .ralph/
-      ├── ralph.sh              # The bash loop runner
-      ├── prompt.md             # Agent instructions
-      ├── PRD.md                # Feature overview and goals
-      ├── TRACK.md              # Implementation tasks and state
-      └── progress.txt          # Iteration log and learnings
-```
-
 ## Key Files
 
 | File | Purpose | Source |
