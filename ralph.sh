@@ -129,6 +129,5 @@ echo "Max iterations (10) reached."
 REMAINING=$(awk '/^### \[ \] / { count++ } END { print count + 0 }' "$TRACK_FILE")
 echo "Remaining tasks: $REMAINING"
 echo ""
-echo "To continue:"
-echo "  ./.ralph/ralph.sh"
+echo "To continue, run this script again from your project root."
 exit 1
