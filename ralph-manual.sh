@@ -6,16 +6,16 @@
 # You control when each task runs.
 #
 # Expected state files:
-#   .ralph/PRD.md
-#   .ralph/TRACK.md
-#   .ralph/progress.txt
+#   ralph/PRD.md
+#   ralph/TRACK.md
+#   ralph/progress.txt
 #
 # Usage:
-#   bash .ralph/ralph-manual.sh
+#   bash ralph/ralph-manual.sh
 ################################################################################
 set -euo pipefail
 
-RALPH_DIR=".ralph"
+RALPH_DIR="ralph"
 
 # Check required files
 for file in "$RALPH_DIR"/{PRD.md,TRACK.md,progress.txt}; do
