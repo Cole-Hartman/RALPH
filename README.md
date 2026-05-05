@@ -6,4 +6,3 @@ My take on [Ralph](https://www.aihero.dev/getting-started-with-ralph)
 
 <img width="6942" height="3219" alt="image" src="https://github.com/user-attachments/assets/f6850af9-4b41-437a-a454-874ac86221c3" />
 
-Breaking down software features into small, autonomously completable tasks and iteratively implementing them with an AI agent. Each task fits in a single AI context window.
