@@ -18,7 +18,6 @@
 #
 # Environment:
 #   RALPH_DIR=.ralph                  # Override state directory
-#   RALPH_BASE_BRANCH=main            # Override PR base branch
 #   RALPH_NO_PR=1                     # Disable push/PR automation
 ################################################################################
 set -euo pipefail
@@ -34,7 +33,7 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 if ! PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null); then
-    echo "Error: Ralph must be run from inside a git worktree."
+    echo "Error: Ralph must be run from inside a git repository."
     exit 1
 fi
 
@@ -69,48 +68,6 @@ if [ -z "$CURRENT_BRANCH" ]; then
     exit 1
 fi
 
-detect_base_branch() {
-    if [ -n "${RALPH_BASE_BRANCH:-}" ]; then
-        echo "$RALPH_BASE_BRANCH"
-        return
-    fi
-
-    local origin_head
-    origin_head=$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' || true)
-    if [ -n "$origin_head" ]; then
-        echo "$origin_head"
-        return
-    fi
-
-    if git show-ref --verify --quiet refs/heads/main; then
-        echo "main"
-        return
-    fi
-
-    if git show-ref --verify --quiet refs/heads/master; then
-        echo "master"
-        return
-    fi
-
-    echo ""
-}
-
-BASE_BRANCH=$(detect_base_branch)
-if [ -z "$BASE_BRANCH" ]; then
-    echo "Error: Could not detect base branch. Set RALPH_BASE_BRANCH=main and retry."
-    exit 1
-fi
-
-if [ "$CURRENT_BRANCH" = "$BASE_BRANCH" ]; then
-    echo "Error: Ralph is running on '$BASE_BRANCH'. Create and cd into a feature worktree first."
-    exit 1
-fi
-
-BASE_REF="$BASE_BRANCH"
-if git show-ref --verify --quiet "refs/remotes/origin/$BASE_BRANCH"; then
-    BASE_REF="origin/$BASE_BRANCH"
-fi
-
 FEATURE_NAME=$(awk '/^# / { sub(/^# /, ""); print; exit }' "$TRACK_FILE")
 if [ -z "$FEATURE_NAME" ]; then
     FEATURE_NAME="$CURRENT_BRANCH"
@@ -134,10 +91,6 @@ get_pr_url() {
     fi
 }
 
-commits_ahead() {
-    git rev-list --count "$BASE_REF..HEAD" 2>/dev/null || echo "0"
-}
-
 ensure_pr() {
     if [ "${RALPH_NO_PR:-0}" = "1" ]; then
         return 0
@@ -150,13 +103,6 @@ ensure_pr() {
 
     if ! git remote get-url origin >/dev/null 2>&1; then
         echo "No origin remote configured; skipping push and PR automation."
-        return 0
-    fi
-
-    local ahead
-    ahead=$(commits_ahead)
-    if [ "$ahead" -eq 0 ]; then
-        echo "No commits ahead of $BASE_REF yet; PR not created."
         return 0
     fi
 
@@ -173,9 +119,8 @@ ensure_pr() {
         return 0
     fi
 
-    echo "Creating PR from $CURRENT_BRANCH to $BASE_BRANCH..."
+    echo "Creating PR from $CURRENT_BRANCH..."
     if gh pr create \
-        -B "$BASE_BRANCH" \
         -H "$CURRENT_BRANCH" \
         --title "WIP: $FEATURE_NAME" \
         --body "Ralph implementation track. See .ralph/PRD.md, .ralph/TRACK.md, and .ralph/progress.txt on this branch while the run is active."; then
@@ -216,7 +161,6 @@ echo "Project: $PROJECT_ROOT"
 echo "State: $RALPH_DIR"
 echo "Feature: $FEATURE_NAME"
 echo "Branch: $CURRENT_BRANCH"
-echo "Base: $BASE_BRANCH"
 echo ""
 
 for ((i=1; i<=MAX; i++)); do
@@ -261,7 +205,6 @@ $LAST_ENTRY"
 Iteration: $i of $MAX
 Project root: $PROJECT_ROOT
 Current branch: $CURRENT_BRANCH
-Base branch: $BASE_BRANCH
 Ralph state directory: $RALPH_DIR
 Next task: $NEXT_TASK
 
