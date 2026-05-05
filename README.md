@@ -6,20 +6,17 @@ My take on [Ralph](https://www.aihero.dev/getting-started-with-ralph)
 
 
 ## To Use
-1. Ensure you're on a feature branch.
-2. Copy the Ralph runner into your branch:
+1. Ensure you're on a feature branch / worktree.
+2. Copy the Ralph into your project:
     ```bash
     mkdir -p .ralph && cp ~/RALPH/ralph.sh .ralph/
     ```
-3. Set up Ralph state files:
+3. Initialize project:
     - Run the `/prd` skill to generate `.ralph/PRD.md`, `.ralph/TRACK.md`, `.ralph/progress.txt`, and `.ralph/prompt.md`
-    - Or copy them manually into `.ralph/`
 4. Run `./.ralph/ralph.sh`
 
 Optional: Before merging, remove Ralph run files if you do not want them in the final PR diff:
 - `git rm -r .ralph`
-- `git commit -m "chore: remove Ralph run files"`
-- `git push`
 
 ## File Structure
 
